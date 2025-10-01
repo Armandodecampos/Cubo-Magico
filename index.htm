@@ -130,13 +130,6 @@
         let animationStartTime = 0;
         const ROTATION_DURATION = 200; // ms
 
-        // Variáveis para a animação de "snap"
-        let isSnapping = false;
-        let snapStartTime = 0;
-        const SNAP_DURATION = 300; // ms
-        let snapStartQuaternion = new THREE.Quaternion();
-        let snapTargetQuaternion = new THREE.Quaternion();
-
         // Novo grupo temporário para rotação de fatias
         let rotationPivot;
         // A câmera será adicionada diretamente à cena
@@ -317,8 +310,8 @@
 
         // Manipuladores de eventos de mouse
         function onMouseDown(event) {
-            if (isAnimatingRotation || isSnapping) return;
-            isSnapping = false; // Interrompe qualquer "snap" em andamento se o usuário clicar
+            if (isAnimatingRotation) return;
+
             isDragging = true;
             previousMousePosition.x = event.clientX;
             previousMousePosition.y = event.clientY;
@@ -377,56 +370,56 @@
             const deltaX = event.clientX - previousMousePosition.x;
             const deltaY = event.clientY - previousMousePosition.y;
 
-            // Se nenhum cubie foi clicado inicialmente, rotaciona o cubo
+            // Se nenhum cubie foi clicado inicialmente, rotaciona a câmera
             if (!intersectedCubie) {
-                const rotationSpeed = 0.01;
-                cubeGroup.rotation.y += deltaX * rotationSpeed;
-                cubeGroup.rotation.x += deltaY * rotationSpeed;
-
+                // Rotação do cubo com Quaternions para evitar deformação
+                const rotationSpeed = 0.005;
+                const deltaRotationQuaternion = new THREE.Quaternion()
+                    .setFromEuler(new THREE.Euler(
+                        deltaY * rotationSpeed,
+                        deltaX * rotationSpeed,
+                        0,
+                        'YXZ'
+                    ));
+                cubeGroup.quaternion.multiplyQuaternions(deltaRotationQuaternion, cubeGroup.quaternion);
             } else {
-                // Lógica para detectar o movimento do mouse para rotação da fatia
+                // Lógica para detectar o movimento do mouse para rotação do cubo
                 const threshold = 15; // Limite de pixels para iniciar a rotação de uma face
                 if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
                     let axis = null;
                     let angle = 0;
 
+                    // Nova lógica de rotação que considera a orientação da câmera
+                    const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+                    const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+
+                    const worldDragVector = cameraRight.multiplyScalar(deltaX).add(cameraUp.multiplyScalar(deltaY));
+
                     const worldNormal = intersectedFaceNormal.clone();
 
-                    const absWorldNormalX = Math.abs(worldNormal.x);
-                    const absWorldNormalY = Math.abs(worldNormal.y);
-                    const absWorldNormalZ = Math.abs(worldNormal.z);
+                    const dragOnFacePlane = worldDragVector.clone().sub(worldNormal.clone().multiplyScalar(worldDragVector.dot(worldNormal)));
 
-                    if (absWorldNormalX > absWorldNormalY && absWorldNormalX > absWorldNormalZ) {
-                        if (Math.abs(deltaY) > Math.abs(deltaX)) { // Vertical drag
-                            axis = new THREE.Vector3(0, 0, 1);
-                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.x) * (Math.PI / 2);
-                        } else { // Horizontal drag
-                            axis = new THREE.Vector3(0, 1, 0);
-                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
-                        }
-                    } else if (absWorldNormalY > absWorldNormalX && absWorldNormalY > absWorldNormalZ) {
-                        if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal drag
-                            axis = new THREE.Vector3(0, 0, 1);
-                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
-                        } else { // Vertical drag
-                            axis = new THREE.Vector3(1, 0, 0);
-                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.y) * (Math.PI / 2);
-                        }
+                    let tempRotationAxis = new THREE.Vector3().crossVectors(worldNormal, dragOnFacePlane).normalize();
+
+                    const absX = Math.abs(tempRotationAxis.x);
+                    const absY = Math.abs(tempRotationAxis.y);
+                    const absZ = Math.abs(tempRotationAxis.z);
+
+                    if (absX > absY && absX > absZ) {
+                        axis = new THREE.Vector3(Math.sign(tempRotationAxis.x), 0, 0);
+                    } else if (absY > absX && absY > absZ) {
+                        axis = new THREE.Vector3(0, Math.sign(tempRotationAxis.y), 0);
                     } else {
-                        if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal drag
-                            axis = new THREE.Vector3(0, 1, 0);
-                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
-                        } else { // Vertical drag
-                            axis = new THREE.Vector3(1, 0, 0);
-                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.z) * (Math.PI / 2);
-                        }
+                        axis = new THREE.Vector3(0, 0, Math.sign(tempRotationAxis.z));
                     }
+
+                    angle = - (Math.PI / 2) * Math.sign(axis.dot(tempRotationAxis));
 
                     if (axis) {
                         startRotation(intersectedCubie, axis, angle);
                     }
-                    isDragging = false;
-                    initialIntersectionPoint = null;
+                    isDragging = false; // Reseta o arrasto após iniciar uma rotação
+                    initialIntersectionPoint = null; // Limpa o ponto inicial
                 }
             }
 
@@ -435,13 +428,11 @@
         }
 
         function onMouseUp() {
-            if (isDragging && !intersectedCubie) {
-                startSnap();
-            }
             isDragging = false;
             intersectedCubie = null;
             intersectedFaceNormal = null;
-            initialIntersectionPoint = null;
+            initialIntersectionPoint = null; // Limpa o ponto inicial ao soltar o mouse
+            // Certifica-se de remover o destaque ao soltar o clique
             if (highlightedCubie) {
                 removeHighlight(highlightedCubie);
                 highlightedCubie = null;
@@ -453,13 +444,10 @@
                 removeHighlight(highlightedCubie);
                 highlightedCubie = null;
             }
-            if (isDragging && !intersectedCubie) {
-                startSnap();
-            }
-            isDragging = false;
+            isDragging = false; // Também reseta o arrasto se o mouse sair da tela
             intersectedCubie = null;
             intersectedFaceNormal = null;
-            initialIntersectionPoint = null;
+            initialIntersectionPoint = null; // Limpa o ponto inicial ao sair da tela
         }
 
         // Manipuladores de eventos de toque (adaptação dos eventos de mouse)
@@ -477,27 +465,6 @@
 
         function onTouchEnd() {
             onMouseUp();
-        }
-
-        function startSnap() {
-            if (isAnimatingRotation || isSnapping) return;
-
-            const euler = new THREE.Euler().setFromQuaternion(cubeGroup.quaternion, 'YXZ');
-
-            const targetEuler = new THREE.Euler(
-                Math.round(euler.x / (Math.PI / 2)) * (Math.PI / 2),
-                Math.round(euler.y / (Math.PI / 2)) * (Math.PI / 2),
-                0, // Não queremos rotação em Z
-                'YXZ'
-            );
-
-            snapTargetQuaternion.setFromEuler(targetEuler);
-
-            if (snapTargetQuaternion.angleTo(cubeGroup.quaternion) > 0.01) {
-                isSnapping = true;
-                snapStartTime = performance.now();
-                snapStartQuaternion.copy(cubeGroup.quaternion);
-            }
         }
 
         // Inicia a animação de rotação de uma fatia do cubo
@@ -610,16 +577,6 @@
 
                 if (progress === 1) {
                     applyRotation();
-                }
-            } else if (isSnapping) {
-                const elapsed = performance.now() - snapStartTime;
-                const progress = Math.min(elapsed / SNAP_DURATION, 1);
-
-                // Interpola suavemente para a rotação de destino
-                THREE.Quaternion.slerp(snapStartQuaternion, snapTargetQuaternion, cubeGroup.quaternion, progress);
-
-                if (progress === 1) {
-                    isSnapping = false;
                 }
             }
 
