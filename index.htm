@@ -7,39 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            overflow: hidden;
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: calc(100vh - 80px);
-            background-color: #f3f4f6;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-        .button-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 1rem;
-            padding: 1rem;
-            padding-bottom: calc(2.5rem + env(safe-area-inset-bottom));
-            background-color: #e5e7eb;
-            border-top: 1px solid #d1d5db;
-        }
-        .button {
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: bold;
-            transition: background-color 0.3s ease, transform 0.1s ease;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        canvas { display: block; width: 100%; height: calc(100vh - 80px); background-color: #f3f4f6; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .button-container { display: flex; justify-content: center; align-items: center; gap: 1rem; padding: 1rem; padding-bottom: calc(2.5rem + env(safe-area-inset-bottom)); background-color: #e5e7eb; border-top: 1px solid #d1d5db; }
+        .button { color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-size: 1rem; font-weight: bold; transition: background-color 0.3s ease, transform 0.1s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
         .shuffle-button { background-color: #4CAF50; }
         .solve-button { background-color: #3b82f6; }
         .button:hover { transform: translateY(-2px); }
@@ -70,6 +41,28 @@
 
         const colors = { R: 0xFF0000, G: 0x00FF00, B: 0x0000FF, Y: 0xFFFF00, W: 0xFFFFFF, O: 0xFFA500, D: 0x222222 };
 
+        // --- Rotação e Animação (Sem Dependências) ---
+        let activeRotation = null;
+        const ROTATION_SPEED = 0.05; // Velocidade da animação de giro
+
+        function updateRotation() {
+            if (!activeRotation) return;
+
+            const { pivot, axis, angle, onComplete } = activeRotation;
+            const step = angle * ROTATION_SPEED;
+
+            pivot.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(axis, angle), ROTATION_SPEED);
+
+            const currentAngle = pivot.quaternion.angleTo(new THREE.Quaternion());
+
+            if (Math.abs(currentAngle - Math.abs(angle)) < 0.01) {
+                pivot.quaternion.setFromAxisAngle(axis, angle);
+                onComplete();
+                activeRotation = null;
+            }
+        }
+        // --- Fim da Lógica de Animação ---
+
         function init() {
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / (window.innerHeight - 80), 0.1, 1000);
@@ -81,8 +74,8 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setClearColor(0x000000, 0);
 
-            scene.add(new THREE.AmbientLight(0x404040, 2));
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            scene.add(new THREE.AmbientLight(0x404040, 3));
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
             directionalLight.position.set(5, 5, 5).normalize();
             scene.add(directionalLight);
 
@@ -129,6 +122,7 @@
             canvas.addEventListener('mouseup', onMouseUp, false);
             canvas.addEventListener('mouseleave', onMouseUp, false);
             document.getElementById('solveButton').addEventListener('click', () => alert('Funcionalidade de resolver ainda não implementada.'));
+             document.getElementById('shuffleButton').addEventListener('click', () => alert('Funcionalidade de embaralhar ainda não implementada.'));
         }
 
         function onMouseDown(event) {
@@ -172,7 +166,7 @@
                     else axis.set(0, 0, Math.sign(tempRotationAxis.z));
 
                     const angle = -(Math.PI / 2) * Math.sign(axis.dot(tempRotationAxis));
-                    startRotation(intersectedCubie, axis, angle);
+                    startSliceRotation(intersectedCubie, axis, angle);
                     isDragging = false;
                 }
             }
@@ -181,31 +175,38 @@
 
         function onMouseUp() { isDragging = false; intersectedCubie = null; }
 
-        function startRotation(cubie, axis, angle) {
+        function startSliceRotation(cubie, axis, angle) {
             if (isAnimating) return;
             isAnimating = true;
-            const rotatingSlice = cubies.filter(c => Math.abs(c.position.dot(axis) - cubie.position.dot(axis)) < 0.1);
-            rotationPivot.quaternion.identity();
-            rotationPivot.position.set(0, 0, 0);
-            rotatingSlice.forEach(c => rotationPivot.attach(c));
 
-            const animation = { progress: 0 };
-            new TWEEN.Tween(animation)
-                .to({ progress: 1 }, 300)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .onUpdate(() => {
-                    rotationPivot.quaternion.setFromAxisAngle(axis, angle * animation.progress);
-                })
-                .onComplete(() => {
-                    rotatingSlice.forEach(c => cubeGroup.attach(c));
+            const rotatingSlice = cubies.filter(c => Math.abs(c.position.clone().applyQuaternion(cubeGroup.quaternion).dot(axis) - cubie.position.clone().applyQuaternion(cubeGroup.quaternion).dot(axis)) < 0.1);
+
+            rotationPivot.quaternion.identity();
+            rotationPivot.position.set(0,0,0);
+            scene.add(rotationPivot);
+
+            rotatingSlice.forEach(c => {
+                cubeGroup.remove(c);
+                rotationPivot.attach(c);
+            });
+
+            activeRotation = {
+                pivot: rotationPivot,
+                axis: axis,
+                angle: angle,
+                onComplete: () => {
+                    rotatingSlice.forEach(c => {
+                        rotationPivot.remove(c);
+                        cubeGroup.attach(c);
+                    });
                     isAnimating = false;
-                })
-                .start();
+                }
+            };
         }
 
-        function animate(time) {
+        function animate() {
             requestAnimationFrame(animate);
-            TWEEN.update(time);
+            updateRotation();
             renderer.render(scene, camera);
         }
 
@@ -215,12 +216,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight - 80);
         }
 
-        // Adicionando TWEEN.js
-        const tweenScript = document.createElement('script');
-        tweenScript.src = "https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js";
-        document.head.appendChild(tweenScript);
-        tweenScript.onload = init;
-
+        init();
     </script>
 </body>
 </html>
