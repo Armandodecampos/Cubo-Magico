@@ -17,7 +17,7 @@
             display: block;
             width: 100%;
             height: calc(100vh - 80px); /* Ajusta altura para o botão */
-            background-color: #ffffff; /* Fundo branco para o canvas */
+            background-color: #f3f4f6; /* Fundo cinza um pouco mais claro */
             border-radius: 0.75rem; /* Cantos arredondados */
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
@@ -27,9 +27,9 @@
             align-items: center;
             gap: 1rem; /* Espaço entre os botões */
             padding: 1rem;
-            padding-bottom: calc(1rem + env(safe-area-inset-bottom)); /* Espaçamento para a barra de navegação do celular */
-            background-color: #ffffff; /* Fundo branco */
-            border-top: 1px solid #e2e8f0; /* Borda cinza clara */
+            padding-bottom: calc(2.5rem + env(safe-area-inset-bottom)); /* Aumenta o espaçamento para a barra de navegação do celular */
+            background-color: #e5e7eb; /* Fundo cinza */
+            border-top: 1px solid #d1d5db; /* Borda cinza mais escura */
         }
         .button { /* Estilo base para os botões */
             color: white;
@@ -65,15 +65,15 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: #ffffff;
-            color: #1a202c;
+            background-color: #f3f4f6; /* Fundo cinza claro */
+            color: #1f2937; /* Texto escuro */
             padding: 1.5rem;
             border-radius: 0.75rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             z-index: 1000;
             display: none; /* Escondido por padrão */
             text-align: center;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #d1d5db; /* Borda cinza mais escura */
         }
         .message-box button {
             background-color: #63b3ed;
@@ -90,7 +90,7 @@
         }
     </style>
 </head>
-<body class="flex flex-col h-screen bg-white">
+<body class="flex flex-col h-screen bg-gray-200">
     <div class="flex-grow flex justify-center items-center p-4">
         <canvas id="cubeCanvas"></canvas>
     </div>
@@ -130,6 +130,13 @@
         let animationStartTime = 0;
         const ROTATION_DURATION = 200; // ms
 
+        // Variáveis para a animação de "snap"
+        let isSnapping = false;
+        let snapStartTime = 0;
+        const SNAP_DURATION = 300; // ms
+        let snapStartQuaternion = new THREE.Quaternion();
+        let snapTargetQuaternion = new THREE.Quaternion();
+
         // Novo grupo temporário para rotação de fatias
         let rotationPivot;
         // A câmera será adicionada diretamente à cena
@@ -147,7 +154,7 @@
             'Y': 0xFFFF00, // Amarelo
             'W': 0xFFFFFF, // Branco
             'O': 0xFFA500, // Laranja
-            'D': 0xcccccc // Cor cinza claro para faces internas
+            'D': 0x222222 // Cor quase preta para faces internas
         };
 
         // Função para exibir mensagens ao usuário
@@ -310,8 +317,8 @@
 
         // Manipuladores de eventos de mouse
         function onMouseDown(event) {
-            if (isAnimatingRotation) return;
-
+            if (isAnimatingRotation || isSnapping) return;
+            isSnapping = false; // Interrompe qualquer "snap" em andamento se o usuário clicar
             isDragging = true;
             previousMousePosition.x = event.clientX;
             previousMousePosition.y = event.clientY;
@@ -370,80 +377,56 @@
             const deltaX = event.clientX - previousMousePosition.x;
             const deltaY = event.clientY - previousMousePosition.y;
 
-            // Se nenhum cubie foi clicado inicialmente, rotaciona a câmera
+            // Se nenhum cubie foi clicado inicialmente, rotaciona o cubo
             if (!intersectedCubie) {
-                // Rotação da câmera
                 const rotationSpeed = 0.01;
-                camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX * rotationSpeed);
-                camera.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), -deltaY * rotationSpeed);
-                camera.lookAt(0, 0, 0);
+                cubeGroup.rotation.y += deltaX * rotationSpeed;
+                cubeGroup.rotation.x += deltaY * rotationSpeed;
+
             } else {
-                // Lógica para detectar o movimento do mouse para rotação do cubo
+                // Lógica para detectar o movimento do mouse para rotação da fatia
                 const threshold = 15; // Limite de pixels para iniciar a rotação de uma face
                 if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
                     let axis = null;
                     let angle = 0;
 
-                    // A normal da face já está no espaço global (armazenada de onMouseDown)
                     const worldNormal = intersectedFaceNormal.clone();
 
-                    // Determine the dominant axis of the worldNormal to understand which face was clicked
-                    // and thus which planes are available for rotation.
                     const absWorldNormalX = Math.abs(worldNormal.x);
                     const absWorldNormalY = Math.abs(worldNormal.y);
                     const absWorldNormalZ = Math.abs(worldNormal.z);
 
                     if (absWorldNormalX > absWorldNormalY && absWorldNormalX > absWorldNormalZ) {
-                        // Clicked face is primarily aligned with world X axis (right/left face)
-                        // Possible rotations are around world Y or world Z.
-                        if (Math.abs(deltaY) > Math.abs(deltaX)) { // Vertical drag is dominant
-                            axis = new THREE.Vector3(0, 0, 1); // Rotate around world Z
-                            // Determine angle sign based on worldNormal.x and deltaY
-                            // If worldNormal.x is positive (right face), dragging down (positive deltaY) should rotate clockwise around Z (negative angle)
-                            // If worldNormal.x is negative (left face), dragging down (positive deltaY) should rotate counter-clockwise around Z (positive angle)
-                            angle = Math.sign(deltaY) * Math.sign(worldNormal.x) * (Math.PI / 2);
-                        } else { // Horizontal drag is dominant
-                            axis = new THREE.Vector3(0, 1, 0); // Rotate around world Y
-                            // Determine angle sign based on worldNormal.x and deltaX
-                            // If worldNormal.x is positive (right face), dragging right (positive deltaX) should rotate counter-clockwise around Y (positive angle)
-                            // If worldNormal.x is negative (left face), dragging right (positive deltaX) should rotate clockwise around Y (negative angle)
-                            angle = Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
+                        if (Math.abs(deltaY) > Math.abs(deltaX)) { // Vertical drag
+                            axis = new THREE.Vector3(0, 0, 1);
+                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.x) * (Math.PI / 2);
+                        } else { // Horizontal drag
+                            axis = new THREE.Vector3(0, 1, 0);
+                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
                         }
                     } else if (absWorldNormalY > absWorldNormalX && absWorldNormalY > absWorldNormalZ) {
-                        // Clicked face is primarily aligned with world Y axis (top/bottom face)
-                        // Possible rotations are around world X or world Z.
-                        if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal drag is dominant
-                            axis = new THREE.Vector3(0, 0, 1); // Rotate around world Z
-                            // Determine angle sign based on worldNormal.y and deltaX
-                            // If worldNormal.y is positive (top face), dragging right (positive deltaX) should rotate clockwise around Z (negative angle)
-                            // If worldNormal.y is negative (bottom face), dragging right (positive deltaX) should rotate counter-clockwise around Z (positive angle)
-                            angle = Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
-                        } else { // Vertical drag is dominant
-                            axis = new THREE.Vector3(1, 0, 0); // Rotate around world X
-                            // Determine angle sign based on worldNormal.y and deltaY
-                            // If worldNormal.y is positive (top face), dragging down (positive deltaY) should rotate counter-clockwise around X (positive angle)
-                            // If worldNormal.y is negative (bottom face), dragging down (positive deltaY) should rotate clockwise around X (negative angle)
-                            angle = Math.sign(deltaY) * Math.sign(worldNormal.y) * (Math.PI / 2);
+                        if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal drag
+                            axis = new THREE.Vector3(0, 0, 1);
+                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
+                        } else { // Vertical drag
+                            axis = new THREE.Vector3(1, 0, 0);
+                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.y) * (Math.PI / 2);
                         }
-                    } else { // Clicked face is primarily aligned with world Z axis (front/back face)
-                        // Possible rotations are around world X or world Y.
-                        if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal drag is dominant
-                            axis = new THREE.Vector3(0, 1, 0); // Rotate around world Y
-                            // Determine angle sign based on worldNormal.z and deltaX
-                            // If worldNormal.z is positive (front face), dragging right (positive deltaX) should rotate clockwise around Y (negative angle)
-                            // If worldNormal.z is negative (back face), dragging right (positive deltaX) should rotate counter-clockwise around Y (positive angle)
-                            angle = Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
-                        } else { // Vertical drag is dominant
-                            axis = new THREE.Vector3(1, 0, 0); // Rotate around world X
-                            angle = Math.sign(deltaY) * Math.sign(worldNormal.z) * (Math.PI / 2);
+                    } else {
+                        if (Math.abs(deltaX) > Math.abs(deltaY)) { // Horizontal drag
+                            axis = new THREE.Vector3(0, 1, 0);
+                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
+                        } else { // Vertical drag
+                            axis = new THREE.Vector3(1, 0, 0);
+                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.z) * (Math.PI / 2);
                         }
                     }
 
                     if (axis) {
                         startRotation(intersectedCubie, axis, angle);
                     }
-                    isDragging = false; // Reseta o arrasto após iniciar uma rotação
-                    initialIntersectionPoint = null; // Limpa o ponto inicial
+                    isDragging = false;
+                    initialIntersectionPoint = null;
                 }
             }
 
@@ -452,11 +435,13 @@
         }
 
         function onMouseUp() {
+            if (isDragging && !intersectedCubie) {
+                startSnap();
+            }
             isDragging = false;
             intersectedCubie = null;
             intersectedFaceNormal = null;
-            initialIntersectionPoint = null; // Limpa o ponto inicial ao soltar o mouse
-            // Certifica-se de remover o destaque ao soltar o clique
+            initialIntersectionPoint = null;
             if (highlightedCubie) {
                 removeHighlight(highlightedCubie);
                 highlightedCubie = null;
@@ -468,10 +453,13 @@
                 removeHighlight(highlightedCubie);
                 highlightedCubie = null;
             }
-            isDragging = false; // Também reseta o arrasto se o mouse sair da tela
+            if (isDragging && !intersectedCubie) {
+                startSnap();
+            }
+            isDragging = false;
             intersectedCubie = null;
             intersectedFaceNormal = null;
-            initialIntersectionPoint = null; // Limpa o ponto inicial ao sair da tela
+            initialIntersectionPoint = null;
         }
 
         // Manipuladores de eventos de toque (adaptação dos eventos de mouse)
@@ -489,6 +477,27 @@
 
         function onTouchEnd() {
             onMouseUp();
+        }
+
+        function startSnap() {
+            if (isAnimatingRotation || isSnapping) return;
+
+            const euler = new THREE.Euler().setFromQuaternion(cubeGroup.quaternion, 'YXZ');
+
+            const targetEuler = new THREE.Euler(
+                Math.round(euler.x / (Math.PI / 2)) * (Math.PI / 2),
+                Math.round(euler.y / (Math.PI / 2)) * (Math.PI / 2),
+                0, // Não queremos rotação em Z
+                'YXZ'
+            );
+
+            snapTargetQuaternion.setFromEuler(targetEuler);
+
+            if (snapTargetQuaternion.angleTo(cubeGroup.quaternion) > 0.01) {
+                isSnapping = true;
+                snapStartTime = performance.now();
+                snapStartQuaternion.copy(cubeGroup.quaternion);
+            }
         }
 
         // Inicia a animação de rotação de uma fatia do cubo
@@ -601,6 +610,16 @@
 
                 if (progress === 1) {
                     applyRotation();
+                }
+            } else if (isSnapping) {
+                const elapsed = performance.now() - snapStartTime;
+                const progress = Math.min(elapsed / SNAP_DURATION, 1);
+
+                // Interpola suavemente para a rotação de destino
+                THREE.Quaternion.slerp(snapStartQuaternion, snapTargetQuaternion, cubeGroup.quaternion, progress);
+
+                if (progress === 1) {
+                    isSnapping = false;
                 }
             }
 
