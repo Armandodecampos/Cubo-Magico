@@ -4,34 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cubo Mágico 3D</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            overflow: hidden; /* Previne rolagem */
+            overflow: hidden;
         }
         canvas {
             display: block;
             width: 100%;
-            height: calc(100vh - 80px); /* Ajusta altura para o botão */
-            background-color: #f3f4f6; /* Fundo cinza um pouco mais claro */
-            border-radius: 0.75rem; /* Cantos arredondados */
+            height: calc(100vh - 80px);
+            background-color: #f3f4f6;
+            border-radius: 0.75rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
         .button-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 1rem; /* Espaço entre os botões */
+            gap: 1rem;
             padding: 1rem;
-            padding-bottom: calc(2.5rem + env(safe-area-inset-bottom)); /* Aumenta o espaçamento para a barra de navegação do celular */
-            background-color: #e5e7eb; /* Fundo cinza */
-            border-top: 1px solid #d1d5db; /* Borda cinza mais escura */
+            padding-bottom: calc(2.5rem + env(safe-area-inset-bottom));
+            background-color: #e5e7eb;
+            border-top: 1px solid #d1d5db;
         }
-        .button { /* Estilo base para os botões */
+        .button {
             color: white;
             padding: 0.75rem 1.5rem;
             border: none;
@@ -42,52 +40,12 @@
             transition: background-color 0.3s ease, transform 0.1s ease;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .shuffle-button {
-            background-color: #4CAF50; /* Verde */
-        }
-        .solve-button {
-            background-color: #3b82f6; /* Azul */
-        }
-        .button:hover {
-            transform: translateY(-2px);
-        }
-        .button:active {
-            transform: translateY(0);
-        }
-        .shuffle-button:hover {
-            background-color: #45a049;
-        }
-        .solve-button:hover {
-            background-color: #2563eb;
-        }
-        .message-box {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #f3f4f6; /* Fundo cinza claro */
-            color: #1f2937; /* Texto escuro */
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            z-index: 1000;
-            display: none; /* Escondido por padrão */
-            text-align: center;
-            border: 1px solid #d1d5db; /* Borda cinza mais escura */
-        }
-        .message-box button {
-            background-color: #63b3ed;
-            color: white;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            margin-top: 1rem;
-            transition: background-color 0.3s ease;
-        }
-        .message-box button:hover {
-            background-color: #4299e1;
-        }
+        .shuffle-button { background-color: #4CAF50; }
+        .solve-button { background-color: #3b82f6; }
+        .button:hover { transform: translateY(-2px); }
+        .button:active { transform: translateY(0); }
+        .shuffle-button:hover { background-color: #45a049; }
+        .solve-button:hover { background-color: #2563eb; }
     </style>
 </head>
 <body class="flex flex-col h-screen bg-gray-200">
@@ -99,160 +57,63 @@
         <button id="solveButton" class="button solve-button">Resolver</button>
     </div>
 
-    <!-- Message Box -->
-    <div id="messageBox" class="message-box">
-        <p id="messageText"></p>
-        <button onclick="hideMessageBox()">OK</button>
-    </div>
-
-    <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Variáveis globais para a cena Three.js
-        let scene, camera, renderer;
-        let cubeGroup; // Grupo principal que contém todos os cubies
-        let cubies = []; // Array para armazenar os cubies individuais
-        const CUBE_SIZE = 3; // Tamanho do cubo (3x3x3)
-        const CUBIE_SPACING = 0.1; // Espaçamento entre os cubies
-        const CUBIE_SIZE = 1; // Tamanho de um cubie individual
+        let scene, camera, renderer, cubeGroup, cubies = [];
+        const CUBE_SIZE = 3, CUBIE_SPACING = 0.1, CUBIE_SIZE_VAL = 1;
 
-        // Variáveis para interação com o mouse/toque
-        let isDragging = false;
+        let isDragging = false, isAnimating = false;
         let previousMousePosition = { x: 0, y: 0 };
-        let initialIntersectionPoint = null; // Stores the 3D point where the mouse first clicked on a cubie
-        let intersectedCubie = null;
-        let intersectedFaceNormal = null; // Normal da face clicada no espaço global
+        let intersectedCubie = null, intersectedFaceNormal = null;
 
-        let rotationAxis = new THREE.Vector3();
-        let rotationAngle = 0;
-        let rotatingSlice = [];
-        let isAnimatingRotation = false;
-        let animationStartTime = 0;
-        const ROTATION_DURATION = 200; // ms
+        let rotationPivot = new THREE.Group();
 
-        // Novo grupo temporário para rotação de fatias
-        let rotationPivot;
-        // A câmera será adicionada diretamente à cena
+        const colors = { R: 0xFF0000, G: 0x00FF00, B: 0x0000FF, Y: 0xFFFF00, W: 0xFFFFFF, O: 0xFFA500, D: 0x222222 };
 
-        // Variáveis para o efeito de brilho ao passar o mouse
-        let highlightedCubie = null;
-        const highlightColor = new THREE.Color(0x222200); // Um amarelo escuro para o brilho
-        const originalEmissiveColors = new Map(); // Para armazenar as cores emissivas originais
-
-        // Cores das faces do cubo (Rubik's standard colors)
-        const colors = {
-            'R': 0xFF0000, // Vermelho
-            'G': 0x00FF00, // Verde
-            'B': 0x0000FF, // Azul
-            'Y': 0xFFFF00, // Amarelo
-            'W': 0xFFFFFF, // Branco
-            'O': 0xFFA500, // Laranja
-            'D': 0x222222 // Cor quase preta para faces internas
-        };
-
-        // Função para exibir mensagens ao usuário
-        function showMessageBox(message) {
-            const messageBox = document.getElementById('messageBox');
-            const messageText = document.getElementById('messageText');
-            messageText.textContent = message;
-            messageBox.style.display = 'block';
-        }
-
-        // Função para esconder a caixa de mensagens
-        function hideMessageBox() {
-            document.getElementById('messageBox').style.display = 'none';
-        }
-
-        // Inicializa a cena 3D
         function init() {
-            // Cena
             scene = new THREE.Scene();
-
-            // Câmera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / (window.innerHeight - 80), 0.1, 1000);
             camera.position.set(4, 4, 4);
             camera.lookAt(0, 0, 0);
 
-            // Renderizador
-            renderer = new THREE.WebGLRenderer({
-                antialias: true,
-                canvas: document.getElementById('cubeCanvas'),
-                alpha: true // Habilita a transparência
-            });
+            renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('cubeCanvas'), alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight - 80);
             renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setClearColor(0x000000, 0); // Define o fundo como transparente
+            renderer.setClearColor(0x000000, 0);
 
-            // Luz ambiente
-            const ambientLight = new THREE.AmbientLight(0x404040, 2); // Luz branca suave
-            scene.add(ambientLight);
-
-            // Luz direcional
+            scene.add(new THREE.AmbientLight(0x404040, 2));
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
             directionalLight.position.set(5, 5, 5).normalize();
             scene.add(directionalLight);
 
-            // Cria o grupo de rotação temporário e o adiciona à cena
-            rotationPivot = new THREE.Group();
             scene.add(rotationPivot);
-
             createCube();
             addEventListeners();
             animate();
-
-            // Adiciona listener para redimensionamento da janela
             window.addEventListener('resize', onWindowResize, false);
         }
 
-        // Cria o cubo mágico (27 cubies)
         function createCube() {
             cubeGroup = new THREE.Group();
-            const offset = (CUBE_SIZE - 1) / 2; // Offset para centralizar o cubo no (0,0,0)
-
+            const offset = (CUBE_SIZE - 1) / 2;
             for (let x = 0; x < CUBE_SIZE; x++) {
                 for (let y = 0; y < CUBE_SIZE; y++) {
                     for (let z = 0; z < CUBE_SIZE; z++) {
-                        const geometry = new THREE.BoxGeometry(CUBIE_SIZE, CUBIE_SIZE, CUBIE_SIZE);
-                        const materials = [];
-
-                        // Definir as cores das faces
-                        // Ordem das faces: +X, -X, +Y, -Y, +Z, -Z
-                        // Cores: R, O, Y, W, G, B
-                        // +X (Direita): Vermelho (R)
-                        materials.push(new THREE.MeshLambertMaterial({ color: (x === CUBE_SIZE - 1) ? colors.R : colors.D }));
-                        // -X (Esquerda): Laranja (O)
-                        materials.push(new THREE.MeshLambertMaterial({ color: (x === 0) ? colors.O : colors.D }));
-                        // +Y (Topo): Amarelo (Y)
-                        materials.push(new THREE.MeshLambertMaterial({ color: (y === CUBE_SIZE - 1) ? colors.Y : colors.D }));
-                        // -Y (Baixo): Branco (W)
-                        materials.push(new THREE.MeshLambertMaterial({ color: (y === 0) ? colors.W : colors.D }));
-                        // +Z (Frente): Verde (G)
-                        materials.push(new THREE.MeshLambertMaterial({ color: (z === CUBE_SIZE - 1) ? colors.G : colors.D }));
-                        // -Z (Trás): Azul (B)
-                        materials.push(new THREE.MeshLambertMaterial({ color: (z === 0) ? colors.B : colors.D }));
-
+                        const geometry = new THREE.BoxGeometry(CUBIE_SIZE_VAL, CUBIE_SIZE_VAL, CUBIE_SIZE_VAL);
+                        const materials = [
+                            new THREE.MeshLambertMaterial({ color: (x === CUBE_SIZE - 1) ? colors.R : colors.D }),
+                            new THREE.MeshLambertMaterial({ color: (x === 0) ? colors.O : colors.D }),
+                            new THREE.MeshLambertMaterial({ color: (y === CUBE_SIZE - 1) ? colors.Y : colors.D }),
+                            new THREE.MeshLambertMaterial({ color: (y === 0) ? colors.W : colors.D }),
+                            new THREE.MeshLambertMaterial({ color: (z === CUBE_SIZE - 1) ? colors.G : colors.D }),
+                            new THREE.MeshLambertMaterial({ color: (z === 0) ? colors.B : colors.D })
+                        ];
                         const cubie = new THREE.Mesh(geometry, materials);
-
-                        // Armazena as cores emissivas originais (que são 0x000000 por padrão para MeshLambertMaterial)
-                        // Garante que cubie.materials é um array ou cria um array com cubie.material
-                        const materialsToProcess = Array.isArray(cubie.materials) ? cubie.materials : (cubie.material ? [cubie.material] : []);
-                        materialsToProcess.forEach((mat, index) => {
-                            if (mat && mat.emissive) {
-                                originalEmissiveColors.set(`${cubie.uuid}-${index}`, mat.emissive.clone());
-                            }
-                        });
-
-                        // Posição do cubie
                         cubie.position.set(
-                            (x - offset) * (CUBIE_SIZE + CUBIE_SPACING),
-                            (y - offset) * (CUBIE_SIZE + CUBIE_SPACING),
-                            (z - offset) * (CUBIE_SIZE + CUBIE_SPACING)
+                            (x - offset) * (CUBIE_SIZE_VAL + CUBIE_SPACING),
+                            (y - offset) * (CUBIE_SIZE_VAL + CUBIE_SPACING),
+                            (z - offset) * (CUBIE_SIZE_VAL + CUBIE_SPACING)
                         );
-
-                        cubie.originalPosition = cubie.position.clone(); // Armazena a posição original
-                        cubie.matrixAutoUpdate = false; // Desabilita a atualização automática da matriz
-                        cubie.updateMatrix(); // Atualiza a matriz uma vez
-
                         cubies.push(cubie);
                         cubeGroup.add(cubie);
                     }
@@ -261,380 +122,105 @@
             scene.add(cubeGroup);
         }
 
-        // Adiciona os event listeners para interação
         function addEventListeners() {
             const canvas = renderer.domElement;
-
             canvas.addEventListener('mousedown', onMouseDown, false);
             canvas.addEventListener('mousemove', onMouseMove, false);
             canvas.addEventListener('mouseup', onMouseUp, false);
-            canvas.addEventListener('mouseleave', onMouseLeave, false); // Trata caso o mouse saia da tela
-
-            // Eventos de toque para dispositivos móveis
-            canvas.addEventListener('touchstart', onTouchStart, false);
-            canvas.addEventListener('touchmove', onTouchMove, false);
-            canvas.addEventListener('touchend', onTouchEnd, false);
-
-            document.getElementById('shuffleButton').addEventListener('click', shuffleCube, false);
-            document.getElementById('solveButton').addEventListener('click', () => {
-                showMessageBox('A funcionalidade de resolver o cubo ainda não foi implementada.');
-            }, false);
+            canvas.addEventListener('mouseleave', onMouseUp, false);
+            document.getElementById('solveButton').addEventListener('click', () => alert('Funcionalidade de resolver ainda não implementada.'));
         }
 
-        // Aplica o efeito de brilho a um cubie
-        function applyHighlight(cubie) {
-            if (!cubie) return;
-            const materialsToProcess = Array.isArray(cubie.materials) ? cubie.materials : (cubie.material ? [cubie.material] : []);
-            materialsToProcess.forEach(mat => {
-                if (mat && mat.emissive) {
-                    mat.emissive.copy(highlightColor);
-                }
-            });
-        }
-
-        // Remove o efeito de brilho de um cubie
-        function removeHighlight(cubie) {
-            if (!cubie) return;
-            const materialsToProcess = Array.isArray(cubie.materials) ? cubie.materials : (cubie.material ? [cubie.material] : []);
-            materialsToProcess.forEach((mat, index) => {
-                if (mat && mat.emissive) {
-                    const originalColor = originalEmissiveColors.get(`${cubie.uuid}-${index}`);
-                    if (originalColor) {
-                        mat.emissive.copy(originalColor);
-                    } else {
-                        mat.emissive.set(0x000000); // Default to black if original not found
-                    }
-                }
-            });
-        }
-
-        // Manipuladores de eventos de mouse
         function onMouseDown(event) {
-            if (isAnimatingRotation) return;
-
+            if (isAnimating) return;
             isDragging = true;
-            previousMousePosition.x = event.clientX;
-            previousMousePosition.y = event.clientY;
-
-            // Raycasting para identificar o cubie e a face clicados
-            const mouse = new THREE.Vector2();
-            mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-            mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-
+            previousMousePosition = { x: event.clientX, y: event.clientY };
+            const mouse = new THREE.Vector2((event.clientX / renderer.domElement.clientWidth) * 2 - 1, -(event.clientY / renderer.domElement.clientHeight) * 2 + 1);
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(mouse, camera);
-
             const intersects = raycaster.intersectObjects(cubies);
-
             if (intersects.length > 0) {
                 intersectedCubie = intersects[0].object;
-                initialIntersectionPoint = intersects[0].point.clone(); // Store the 3D point of initial click
-                // A normal da face é relativa ao sistema de coordenadas local do cubie.
-                // Precisamos transformá-la para o sistema de coordenadas global do cubo.
-                intersectedFaceNormal = intersects[0].face.normal.clone();
-                intersectedFaceNormal.transformDirection(intersectedCubie.matrixWorld);
+                intersectedFaceNormal = intersects[0].face.normal.clone().transformDirection(intersectedCubie.matrixWorld);
             } else {
                 intersectedCubie = null;
-                intersectedFaceNormal = null;
-                initialIntersectionPoint = null;
             }
         }
 
         function onMouseMove(event) {
-            const mouse = new THREE.Vector2();
-            mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-            mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(mouse, camera);
-
-            const intersects = raycaster.intersectObjects(cubies);
-
-            let currentHoveredCubie = null;
-            if (intersects.length > 0) {
-                currentHoveredCubie = intersects[0].object;
-            }
-
-            if (currentHoveredCubie !== highlightedCubie) {
-                if (highlightedCubie) {
-                    removeHighlight(highlightedCubie);
-                }
-                if (currentHoveredCubie) {
-                    applyHighlight(currentHoveredCubie);
-                }
-                highlightedCubie = currentHoveredCubie;
-            }
-
-            if (!isDragging || isAnimatingRotation) return;
-
+            if (!isDragging || isAnimating) return;
             const deltaX = event.clientX - previousMousePosition.x;
             const deltaY = event.clientY - previousMousePosition.y;
 
-            // Se nenhum cubie foi clicado inicialmente, rotaciona o cubo
             if (!intersectedCubie) {
-                // Rotação do cubo com Quaternions para evitar deformação
                 const rotationSpeed = 0.005;
-                const deltaRotationQuaternion = new THREE.Quaternion()
-                    .setFromEuler(new THREE.Euler(
-                        deltaY * rotationSpeed,
-                        deltaX * rotationSpeed,
-                        0,
-                        'YXZ'
-                    ));
+                const deltaRotationQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(deltaY * rotationSpeed, deltaX * rotationSpeed, 0, 'YXZ'));
                 cubeGroup.quaternion.multiplyQuaternions(deltaRotationQuaternion, cubeGroup.quaternion);
             } else {
-                // Lógica para detectar o movimento do mouse para rotação do cubo
-                const threshold = 15; // Limite de pixels para iniciar a rotação de uma face
+                const threshold = 15;
                 if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
-                    let axis = null;
-                    let angle = 0;
-
-                    // Nova lógica de rotação que considera a orientação da câmera
-                    const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-                    const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
-
+                    const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+                    const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
                     const worldDragVector = cameraRight.multiplyScalar(deltaX).add(cameraUp.multiplyScalar(deltaY));
+                    const dragOnFacePlane = worldDragVector.clone().sub(intersectedFaceNormal.clone().multiplyScalar(worldDragVector.dot(intersectedFaceNormal)));
+                    let tempRotationAxis = new THREE.Vector3().crossVectors(intersectedFaceNormal, dragOnFacePlane).normalize();
 
-                    const worldNormal = intersectedFaceNormal.clone();
+                    let axis = new THREE.Vector3();
+                    const absX = Math.abs(tempRotationAxis.x), absY = Math.abs(tempRotationAxis.y), absZ = Math.abs(tempRotationAxis.z);
+                    if (absX > absY && absX > absZ) axis.set(Math.sign(tempRotationAxis.x), 0, 0);
+                    else if (absY > absX && absY > absZ) axis.set(0, Math.sign(tempRotationAxis.y), 0);
+                    else axis.set(0, 0, Math.sign(tempRotationAxis.z));
 
-                    const dragOnFacePlane = worldDragVector.clone().sub(worldNormal.clone().multiplyScalar(worldDragVector.dot(worldNormal)));
-
-                    let tempRotationAxis = new THREE.Vector3().crossVectors(worldNormal, dragOnFacePlane).normalize();
-
-                    const absX = Math.abs(tempRotationAxis.x);
-                    const absY = Math.abs(tempRotationAxis.y);
-                    const absZ = Math.abs(tempRotationAxis.z);
-
-                    if (absX > absY && absX > absZ) {
-                        axis = new THREE.Vector3(Math.sign(tempRotationAxis.x), 0, 0);
-                    } else if (absY > absX && absY > absZ) {
-                        axis = new THREE.Vector3(0, Math.sign(tempRotationAxis.y), 0);
-                    } else {
-                        axis = new THREE.Vector3(0, 0, Math.sign(tempRotationAxis.z));
-                    }
-
-                    angle = - (Math.PI / 2) * Math.sign(axis.dot(tempRotationAxis));
-
-                    if (axis) {
-                        startRotation(intersectedCubie, axis, angle);
-                    }
-                    isDragging = false; // Reseta o arrasto após iniciar uma rotação
-                    initialIntersectionPoint = null; // Limpa o ponto inicial
+                    const angle = -(Math.PI / 2) * Math.sign(axis.dot(tempRotationAxis));
+                    startRotation(intersectedCubie, axis, angle);
+                    isDragging = false;
                 }
             }
-
-            previousMousePosition.x = event.clientX;
-            previousMousePosition.y = event.clientY;
+            previousMousePosition = { x: event.clientX, y: event.clientY };
         }
 
-        function onMouseUp() {
-            isDragging = false;
-            intersectedCubie = null;
-            intersectedFaceNormal = null;
-            initialIntersectionPoint = null; // Limpa o ponto inicial ao soltar o mouse
-            // Certifica-se de remover o destaque ao soltar o clique
-            if (highlightedCubie) {
-                removeHighlight(highlightedCubie);
-                highlightedCubie = null;
-            }
-        }
+        function onMouseUp() { isDragging = false; intersectedCubie = null; }
 
-        function onMouseLeave() {
-            if (highlightedCubie) {
-                removeHighlight(highlightedCubie);
-                highlightedCubie = null;
-            }
-            isDragging = false; // Também reseta o arrasto se o mouse sair da tela
-            intersectedCubie = null;
-            intersectedFaceNormal = null;
-            initialIntersectionPoint = null; // Limpa o ponto inicial ao sair da tela
-        }
-
-        // Manipuladores de eventos de toque (adaptação dos eventos de mouse)
-        function onTouchStart(event) {
-            if (event.touches.length === 1) {
-                onMouseDown(event.touches[0]);
-            }
-        }
-
-        function onTouchMove(event) {
-            if (event.touches.length === 1) {
-                onMouseMove(event.touches[0]);
-            }
-        }
-
-        function onTouchEnd() {
-            onMouseUp();
-        }
-
-        // Inicia a animação de rotação de uma fatia do cubo
         function startRotation(cubie, axis, angle) {
-            if (isAnimatingRotation) return;
-
-            isAnimatingRotation = true;
-            rotationAxis = axis.clone(); // Eixo de rotação em coordenadas do mundo
-            rotationAngle = angle;
-            animationStartTime = performance.now();
-
-            // Reseta o pivô de rotação para garantir que não haja rotações ou posições residuais
+            if (isAnimating) return;
+            isAnimating = true;
+            const rotatingSlice = cubies.filter(c => Math.abs(c.position.dot(axis) - cubie.position.dot(axis)) < 0.1);
             rotationPivot.quaternion.identity();
-            rotationPivot.position.copy(cubeGroup.position); // Posiciona o pivô no centro do cubeGroup
+            rotationPivot.position.set(0, 0, 0);
+            rotatingSlice.forEach(c => rotationPivot.attach(c));
 
-            // Identifica os cubies na fatia a ser rotacionada
-            rotatingSlice = [];
-            // A posição do cubie clicado no espaço do cubeGroup
-            const clickedCubieLocalPos = cubie.position.clone();
-
-            // Transforma o eixo de rotação do espaço do mundo para o espaço local do cubeGroup
-            const rotationAxisInCubeLocal = rotationAxis.clone().applyQuaternion(cubeGroup.quaternion.clone().invert());
-
-            cubies.forEach(c => {
-                // Posição do cubie atual em relação ao cubeGroup (já está em coordenadas locais do cubeGroup)
-                const currentCubieLocalPosition = c.position.clone();
-                let belongsToSlice = false;
-
-                // Tolerância para seleção da fatia (para compensar imprecisões de ponto flutuante)
-                const tolerance = 0.1;
-
-                // Compara as posições locais dos cubies com a posição local do cubie clicado
-                // ao longo do eixo de rotação (também transformado para o espaço local do cubo).
-                if (Math.abs(rotationAxisInCubeLocal.x) > 0.5) { // Rotação em X (fatia YZ)
-                    if (Math.abs(currentCubieLocalPosition.x - clickedCubieLocalPos.x) < tolerance) {
-                        belongsToSlice = true;
-                    }
-                } else if (Math.abs(rotationAxisInCubeLocal.y) > 0.5) { // Rotação em Y (fatia XZ)
-                    if (Math.abs(currentCubieLocalPosition.y - clickedCubieLocalPos.y) < tolerance) {
-                        belongsToSlice = true;
-                    }
-                } else if (Math.abs(rotationAxisInCubeLocal.z) > 0.5) { // Rotação em Z (fatia XY)
-                    if (Math.abs(currentCubieLocalPosition.z - clickedCubieLocalPos.z) < tolerance) {
-                        belongsToSlice = true;
-                    }
-                }
-
-                if (belongsToSlice) {
-                    rotatingSlice.push(c);
-                    // Desanexa do cubeGroup e anexa ao rotationPivot
-                    cubeGroup.remove(c);
-                    rotationPivot.add(c);
-                }
-            });
+            const animation = { progress: 0 };
+            new TWEEN.Tween(animation)
+                .to({ progress: 1 }, 300)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .onUpdate(() => {
+                    rotationPivot.quaternion.setFromAxisAngle(axis, angle * animation.progress);
+                })
+                .onComplete(() => {
+                    rotatingSlice.forEach(c => cubeGroup.attach(c));
+                    isAnimating = false;
+                })
+                .start();
         }
 
-        // Aplica a rotação final e atualiza as posições dos cubies
-        function applyRotation() {
-            rotatingSlice.forEach(cubie => {
-                // Obtém a posição e rotação do cubie no espaço global (após a rotação do pivô)
-                const worldPosition = new THREE.Vector3();
-                const worldQuaternion = new THREE.Quaternion();
-                cubie.getWorldPosition(worldPosition);
-                cubie.getWorldQuaternion(worldQuaternion);
-
-                // Desanexa do rotationPivot
-                rotationPivot.remove(cubie);
-
-                // Reanexa ao cubeGroup
-                cubeGroup.add(cubie);
-
-                // Define a nova posição e rotação local do cubie em relação ao cubeGroup
-                // Isso garante que ele se "encaixe" corretamente na nova posição da grade
-                cubie.position.copy(cubeGroup.worldToLocal(worldPosition));
-                cubie.quaternion.copy(worldQuaternion);
-                // Ajusta a rotação local com base na rotação do grupo pai
-                cubie.quaternion.premultiply(cubeGroup.quaternion.clone().invert());
-
-                // Arredonda as coordenadas para evitar erros de ponto flutuante e garantir o alinhamento
-                cubie.position.x = Math.round(cubie.position.x * 100) / 100;
-                cubie.position.y = Math.round(cubie.position.y * 100) / 100;
-                cubie.position.z = Math.round(cubie.position.z * 100) / 100;
-
-                cubie.updateMatrix(); // Atualiza a matriz local do cubie
-            });
-
-            // Reseta o pivô de rotação para o próximo movimento
-            rotationPivot.quaternion.identity();
-            rotationPivot.position.copy(cubeGroup.position);
-
-            isAnimatingRotation = false;
-            rotatingSlice = [];
-            rotationAngle = 0;
-            rotationAxis = new THREE.Vector3();
-        }
-
-
-        // Função de animação
-        function animate() {
+        function animate(time) {
             requestAnimationFrame(animate);
-
-            if (isAnimatingRotation) {
-                const elapsed = performance.now() - animationStartTime;
-                const progress = Math.min(elapsed / ROTATION_DURATION, 1);
-                const currentRotationAmount = rotationAngle * progress;
-
-                // Aplica a rotação ao grupo pivô
-                rotationPivot.quaternion.setFromAxisAngle(rotationAxis, currentRotationAmount);
-                rotationPivot.updateMatrixWorld(true); // Garante que a matriz global do pivô seja atualizada
-
-                if (progress === 1) {
-                    applyRotation();
-                }
-            }
-
+            TWEEN.update(time);
             renderer.render(scene, camera);
         }
 
-        // Redimensiona a cena quando a janela é redimensionada
         function onWindowResize() {
             camera.aspect = window.innerWidth / (window.innerHeight - 80);
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight - 80);
         }
 
-        // Função para embaralhar o cubo
-        async function shuffleCube() {
-            if (isAnimatingRotation) {
-                showMessageBox("Aguarde a rotação atual terminar antes de embaralhar.");
-                return;
-            }
+        // Adicionando TWEEN.js
+        const tweenScript = document.createElement('script');
+        tweenScript.src = "https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js";
+        document.head.appendChild(tweenScript);
+        tweenScript.onload = init;
 
-            showMessageBox("Embaralhando o cubo...");
-            const numMoves = 30; // Número de movimentos para embaralhar
-            const axes = [
-                new THREE.Vector3(1, 0, 0), // X
-                new THREE.Vector3(0, 1, 0), // Y
-                new THREE.Vector3(0, 0, 1)  // Z
-            ];
-            const angles = [Math.PI / 2, -Math.PI / 2]; // 90 graus horário e anti-horário
-
-            for (let i = 0; i < numMoves; i++) {
-                const randomAxis = axes[Math.floor(Math.random() * axes.length)];
-                const randomAngle = angles[Math.floor(Math.random() * angles.length)];
-
-                // Seleciona um cubie aleatório para determinar a fatia
-                const randomCubieIndex = Math.floor(Math.random() * cubies.length);
-                const cubieToRotate = cubies[randomCubieIndex];
-
-                // Inicia a rotação
-                startRotation(cubieToRotate, randomAxis, randomAngle);
-
-                // Espera a animação terminar antes de fazer o próximo movimento
-                await new Promise(resolve => {
-                    const checkAnimation = setInterval(() => {
-                        if (!isAnimatingRotation) {
-                            clearInterval(checkAnimation);
-                            resolve();
-                        }
-                    }, 50); // Verifica a cada 50ms
-                });
-            }
-            hideMessageBox();
-            showMessageBox("Cubo embaralhado!");
-        }
-
-        // Inicia a aplicação quando a janela carrega
-        window.onload = function() {
-            init();
-        };
     </script>
 </body>
 </html>
