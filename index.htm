@@ -12,13 +12,12 @@
         body {
             font-family: 'Inter', sans-serif;
             overflow: hidden; /* Previne rolagem */
-            background-color: #1a202c; /* Fundo escuro */
         }
         canvas {
             display: block;
             width: 100%;
             height: calc(100vh - 80px); /* Ajusta altura para o botão */
-            background-color: #2d3748; /* Fundo ligeiramente mais escuro para o canvas */
+            background-color: #ffffff; /* Fundo branco para o canvas */
             border-radius: 0.75rem; /* Cantos arredondados */
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
@@ -26,12 +25,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            gap: 1rem; /* Espaço entre os botões */
             padding: 1rem;
-            background-color: #1a202c;
-            border-top: 1px solid #4a5568;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom)); /* Espaçamento para a barra de navegação do celular */
+            background-color: #ffffff; /* Fundo branco */
+            border-top: 1px solid #e2e8f0; /* Borda cinza clara */
         }
-        .shuffle-button {
-            background-color: #4CAF50; /* Verde */
+        .button { /* Estilo base para os botões */
             color: white;
             padding: 0.75rem 1.5rem;
             border: none;
@@ -42,26 +42,38 @@
             transition: background-color 0.3s ease, transform 0.1s ease;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .shuffle-button:hover {
-            background-color: #45a049;
+        .shuffle-button {
+            background-color: #4CAF50; /* Verde */
+        }
+        .solve-button {
+            background-color: #3b82f6; /* Azul */
+        }
+        .button:hover {
             transform: translateY(-2px);
         }
-        .shuffle-button:active {
+        .button:active {
             transform: translateY(0);
+        }
+        .shuffle-button:hover {
+            background-color: #45a049;
+        }
+        .solve-button:hover {
+            background-color: #2563eb;
         }
         .message-box {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-color: #2d3748;
-            color: white;
+            background-color: #ffffff;
+            color: #1a202c;
             padding: 1.5rem;
             border-radius: 0.75rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             z-index: 1000;
             display: none; /* Escondido por padrão */
             text-align: center;
+            border: 1px solid #e2e8f0;
         }
         .message-box button {
             background-color: #63b3ed;
@@ -78,12 +90,13 @@
         }
     </style>
 </head>
-<body class="flex flex-col h-screen">
+<body class="flex flex-col h-screen bg-white">
     <div class="flex-grow flex justify-center items-center p-4">
         <canvas id="cubeCanvas"></canvas>
     </div>
     <div class="button-container">
-        <button id="shuffleButton" class="shuffle-button">Embaralhar</button>
+        <button id="shuffleButton" class="button shuffle-button">Embaralhar</button>
+        <button id="solveButton" class="button solve-button">Resolver</button>
     </div>
 
     <!-- Message Box -->
@@ -134,7 +147,7 @@
             'Y': 0xFFFF00, // Amarelo
             'W': 0xFFFFFF, // Branco
             'O': 0xFFA500, // Laranja
-            'D': 0x1a202c // Cor escura para faces internas
+            'D': 0xcccccc // Cor cinza claro para faces internas
         };
 
         // Função para exibir mensagens ao usuário
@@ -161,9 +174,14 @@
             camera.lookAt(0, 0, 0);
 
             // Renderizador
-            renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('cubeCanvas') });
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                canvas: document.getElementById('cubeCanvas'),
+                alpha: true // Habilita a transparência
+            });
             renderer.setSize(window.innerWidth, window.innerHeight - 80);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0); // Define o fundo como transparente
 
             // Luz ambiente
             const ambientLight = new THREE.AmbientLight(0x404040, 2); // Luz branca suave
@@ -258,6 +276,9 @@
             canvas.addEventListener('touchend', onTouchEnd, false);
 
             document.getElementById('shuffleButton').addEventListener('click', shuffleCube, false);
+            document.getElementById('solveButton').addEventListener('click', () => {
+                showMessageBox('A funcionalidade de resolver o cubo ainda não foi implementada.');
+            }, false);
         }
 
         // Aplica o efeito de brilho a um cubie
@@ -380,13 +401,13 @@
                             // Determine angle sign based on worldNormal.x and deltaY
                             // If worldNormal.x is positive (right face), dragging down (positive deltaY) should rotate clockwise around Z (negative angle)
                             // If worldNormal.x is negative (left face), dragging down (positive deltaY) should rotate counter-clockwise around Z (positive angle)
-                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.x) * (Math.PI / 2);
+                            angle = Math.sign(deltaY) * Math.sign(worldNormal.x) * (Math.PI / 2);
                         } else { // Horizontal drag is dominant
                             axis = new THREE.Vector3(0, 1, 0); // Rotate around world Y
                             // Determine angle sign based on worldNormal.x and deltaX
                             // If worldNormal.x is positive (right face), dragging right (positive deltaX) should rotate counter-clockwise around Y (positive angle)
                             // If worldNormal.x is negative (left face), dragging right (positive deltaX) should rotate clockwise around Y (negative angle)
-                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
+                            angle = Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
                         }
                     } else if (absWorldNormalY > absWorldNormalX && absWorldNormalY > absWorldNormalZ) {
                         // Clicked face is primarily aligned with world Y axis (top/bottom face)
@@ -396,13 +417,13 @@
                             // Determine angle sign based on worldNormal.y and deltaX
                             // If worldNormal.y is positive (top face), dragging right (positive deltaX) should rotate clockwise around Z (negative angle)
                             // If worldNormal.y is negative (bottom face), dragging right (positive deltaX) should rotate counter-clockwise around Z (positive angle)
-                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
+                            angle = Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
                         } else { // Vertical drag is dominant
                             axis = new THREE.Vector3(1, 0, 0); // Rotate around world X
                             // Determine angle sign based on worldNormal.y and deltaY
                             // If worldNormal.y is positive (top face), dragging down (positive deltaY) should rotate counter-clockwise around X (positive angle)
                             // If worldNormal.y is negative (bottom face), dragging down (positive deltaY) should rotate clockwise around X (negative angle)
-                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.y) * (Math.PI / 2);
+                            angle = Math.sign(deltaY) * Math.sign(worldNormal.y) * (Math.PI / 2);
                         }
                     } else { // Clicked face is primarily aligned with world Z axis (front/back face)
                         // Possible rotations are around world X or world Y.
@@ -411,11 +432,10 @@
                             // Determine angle sign based on worldNormal.z and deltaX
                             // If worldNormal.z is positive (front face), dragging right (positive deltaX) should rotate clockwise around Y (negative angle)
                             // If worldNormal.z is negative (back face), dragging right (positive deltaX) should rotate counter-clockwise around Y (positive angle)
-                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
+                            angle = Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
                         } else { // Vertical drag is dominant
                             axis = new THREE.Vector3(1, 0, 0); // Rotate around world X
-                            // Invertido para corresponder ao movimento do mouse
-                            angle = -Math.sign(deltaY) * Math.sign(worldNormal.z) * (Math.PI / 2);
+                            angle = Math.sign(deltaY) * Math.sign(worldNormal.z) * (Math.PI / 2);
                         }
                     }
 
