@@ -41,27 +41,8 @@
 
         const colors = { R: 0xFF0000, G: 0x00FF00, B: 0x0000FF, Y: 0xFFFF00, W: 0xFFFFFF, O: 0xFFA500, D: 0x222222 };
 
-        // --- Rotação e Animação (Sem Dependências) ---
         let activeRotation = null;
-        const ROTATION_SPEED = 0.05; // Velocidade da animação de giro
-
-        function updateRotation() {
-            if (!activeRotation) return;
-
-            const { pivot, axis, angle, onComplete } = activeRotation;
-            const step = angle * ROTATION_SPEED;
-
-            pivot.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(axis, angle), ROTATION_SPEED);
-
-            const currentAngle = pivot.quaternion.angleTo(new THREE.Quaternion());
-
-            if (Math.abs(currentAngle - Math.abs(angle)) < 0.01) {
-                pivot.quaternion.setFromAxisAngle(axis, angle);
-                onComplete();
-                activeRotation = null;
-            }
-        }
-        // --- Fim da Lógica de Animação ---
+        const ROTATION_DURATION = 150; // Duração da animação em ms
 
         function init() {
             scene = new THREE.Scene();
@@ -74,7 +55,7 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setClearColor(0x000000, 0);
 
-            scene.add(new THREE.AmbientLight(0x404040, 3));
+            scene.add(new THREE.AmbientLight(0x606060, 3));
             const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
             directionalLight.position.set(5, 5, 5).normalize();
             scene.add(directionalLight);
@@ -122,7 +103,7 @@
             canvas.addEventListener('mouseup', onMouseUp, false);
             canvas.addEventListener('mouseleave', onMouseUp, false);
             document.getElementById('solveButton').addEventListener('click', () => alert('Funcionalidade de resolver ainda não implementada.'));
-             document.getElementById('shuffleButton').addEventListener('click', () => alert('Funcionalidade de embaralhar ainda não implementada.'));
+            document.getElementById('shuffleButton').addEventListener('click', () => alert('Funcionalidade de embaralhar ainda não implementada.'));
         }
 
         function onMouseDown(event) {
@@ -166,7 +147,7 @@
                     else axis.set(0, 0, Math.sign(tempRotationAxis.z));
 
                     const angle = -(Math.PI / 2) * Math.sign(axis.dot(tempRotationAxis));
-                    startSliceRotation(intersectedCubie, axis, angle);
+                    startSliceRotation(intersectedCubie, axis.applyQuaternion(cubeGroup.quaternion.clone().invert()), angle);
                     isDragging = false;
                 }
             }
@@ -179,34 +160,40 @@
             if (isAnimating) return;
             isAnimating = true;
 
-            const rotatingSlice = cubies.filter(c => Math.abs(c.position.clone().applyQuaternion(cubeGroup.quaternion).dot(axis) - cubie.position.clone().applyQuaternion(cubeGroup.quaternion).dot(axis)) < 0.1);
+            const rotatingSlice = cubies.filter(c => Math.abs(c.position.dot(axis)) < 0.1);
 
             rotationPivot.quaternion.identity();
             rotationPivot.position.set(0,0,0);
-            scene.add(rotationPivot);
 
-            rotatingSlice.forEach(c => {
-                cubeGroup.remove(c);
-                rotationPivot.attach(c);
-            });
+            rotatingSlice.forEach(c => rotationPivot.add(c));
 
-            activeRotation = {
-                pivot: rotationPivot,
-                axis: axis,
-                angle: angle,
-                onComplete: () => {
+            const startQuaternion = new THREE.Quaternion();
+            const targetQuaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+            let startTime = null;
+
+            const animateRotation = (time) => {
+                if (startTime === null) startTime = time;
+                const progress = Math.min((time - startTime) / ROTATION_DURATION, 1);
+
+                THREE.Quaternion.slerp(startQuaternion, targetQuaternion, rotationPivot.quaternion, progress);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateRotation);
+                } else {
                     rotatingSlice.forEach(c => {
-                        rotationPivot.remove(c);
-                        cubeGroup.attach(c);
+                        c.position.applyQuaternion(targetQuaternion);
+                        c.quaternion.multiplyQuaternions(targetQuaternion, c.quaternion);
+                        cubeGroup.add(c);
                     });
+                    rotationPivot.clear();
                     isAnimating = false;
                 }
             };
+            requestAnimationFrame(animateRotation);
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            updateRotation();
             renderer.render(scene, camera);
         }
 
