@@ -386,7 +386,7 @@
                             // Determine angle sign based on worldNormal.x and deltaX
                             // If worldNormal.x is positive (right face), dragging right (positive deltaX) should rotate counter-clockwise around Y (positive angle)
                             // If worldNormal.x is negative (left face), dragging right (positive deltaX) should rotate clockwise around Y (negative angle)
-                            angle = Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
+                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.x) * (Math.PI / 2);
                         }
                     } else if (absWorldNormalY > absWorldNormalX && absWorldNormalY > absWorldNormalZ) {
                         // Clicked face is primarily aligned with world Y axis (top/bottom face)
@@ -396,7 +396,7 @@
                             // Determine angle sign based on worldNormal.y and deltaX
                             // If worldNormal.y is positive (top face), dragging right (positive deltaX) should rotate clockwise around Z (negative angle)
                             // If worldNormal.y is negative (bottom face), dragging right (positive deltaX) should rotate counter-clockwise around Z (positive angle)
-                            angle = Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
+                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.y) * (Math.PI / 2);
                         } else { // Vertical drag is dominant
                             axis = new THREE.Vector3(1, 0, 0); // Rotate around world X
                             // Determine angle sign based on worldNormal.y and deltaY
@@ -411,7 +411,7 @@
                             // Determine angle sign based on worldNormal.z and deltaX
                             // If worldNormal.z is positive (front face), dragging right (positive deltaX) should rotate clockwise around Y (negative angle)
                             // If worldNormal.z is negative (back face), dragging right (positive deltaX) should rotate counter-clockwise around Y (positive angle)
-                            angle = Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
+                            angle = -Math.sign(deltaX) * Math.sign(worldNormal.z) * (Math.PI / 2);
                         } else { // Vertical drag is dominant
                             axis = new THREE.Vector3(1, 0, 0); // Rotate around world X
                             // Invertido para corresponder ao movimento do mouse
