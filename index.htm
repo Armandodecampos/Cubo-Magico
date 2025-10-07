@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cubo 3D Interativo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         body {
             margin: 0;
@@ -26,9 +27,80 @@
             background-color: rgba(0,0,0,0.2);
             border-radius: 10px;
         }
+
+        /* Estilos do Botão de Configurações */
+        #settings-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            z-index: 101;
+            transition: transform 0.2s;
+        }
+        #settings-button:hover {
+            transform: rotate(45deg);
+        }
+
+        /* Estilos do Modal de Configurações */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 102;
+        }
+        .modal-content {
+            background-color: #2c2c2c;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-content label {
+            display: block;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Classe para esconder elementos */
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
+    <!-- Botão de Configurações -->
+    <div id="settings-button">
+        <i class="fas fa-cog"></i>
+    </div>
+
+    <!-- Modal de Configurações -->
+    <div id="settings-modal" class="hidden">
+        <div class="modal-content">
+            <label for="zoom-slider">Zoom</label>
+            <input type="range" id="zoom-slider" min="2" max="20" value="8" step="0.1">
+        </div>
+    </div>
+
     <!-- Importmap para Three.js e OrbitControls -->
     <script type="importmap">
     {
@@ -100,6 +172,33 @@
             renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
             renderer.domElement.addEventListener('pointermove', onPointerMove, false);
             renderer.domElement.addEventListener('pointerup', onPointerUp, false);
+
+            // Lógica do Modal de Configurações
+            const settingsButton = document.getElementById('settings-button');
+            const settingsModal = document.getElementById('settings-modal');
+            const zoomSlider = document.getElementById('zoom-slider');
+
+            settingsButton.addEventListener('click', (event) => {
+                event.stopPropagation(); // Impede que o clique feche o modal imediatamente
+                settingsModal.classList.toggle('hidden');
+            });
+
+            // Fecha o modal se clicar fora dele
+            settingsModal.addEventListener('click', (event) => {
+                if (event.target === settingsModal) {
+                    settingsModal.classList.add('hidden');
+                }
+            });
+
+            zoomSlider.addEventListener('input', (event) => {
+                const distance = parseFloat(event.target.value);
+                // Mantém a direção da câmera, mas altera a distância (zoom)
+                camera.position.setLength(distance);
+            });
+
+            // Define a posição inicial do slider com base na posição da câmera
+            zoomSlider.value = camera.position.length();
+
 
             // Iniciar loop de animação
             animate();
