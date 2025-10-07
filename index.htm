@@ -99,6 +99,8 @@
         <div class="modal-content">
             <label for="zoom-slider">Zoom</label>
             <input type="range" id="zoom-slider" min="2" max="20" value="8" step="0.1">
+            <label for="bg-color-picker" style="margin-top: 20px;">Cor de Fundo</label>
+            <input type="color" id="bg-color-picker" value="#1a1a1a">
         </div>
     </div>
 
@@ -118,7 +120,7 @@
 
         // --- Variáveis Globais ---
         let scene, camera, renderer, controls;
-        let cubeGroup, piecesGroup;
+        let cubeGroup, piecesGroup, innerMaterial;
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         const pieceSize = 1;
@@ -155,13 +157,6 @@
             controls.enableZoom = false; // Desabilita o zoom pela roda do mouse
             controls.enablePan = false; // Desabilita o pan (arrastar)
             
-            // Iluminação
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            directionalLight.position.set(5, 10, 7.5);
-            scene.add(directionalLight);
-
             // Criar o cubo
             createRubiksCube();
 
@@ -197,6 +192,24 @@
             // Define a posição inicial do slider com base na posição da câmera
             zoomSlider.value = camera.position.length();
 
+            // Lógica do Seletor de Cores de Fundo
+            const bgColorPicker = document.getElementById('bg-color-picker');
+            innerMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+
+            bgColorPicker.addEventListener('input', (event) => {
+                const color = event.target.value;
+                document.body.style.backgroundColor = color;
+                renderer.setClearColor(color);
+                scene.background = new THREE.Color(color);
+                innerMaterial.color.set(color);
+            });
+
+            // Define a cor inicial do seletor e do fundo
+            const initialColor = '#1a1a1a';
+            document.body.style.backgroundColor = initialColor;
+            renderer.setClearColor(initialColor);
+            scene.background = new THREE.Color(initialColor);
+
 
             // Iniciar loop de animação
             animate();
@@ -211,8 +224,7 @@
             // Adiciona o núcleo central para preencher os vãos
             const coreSize = pieceSize + 2 * gap;
             const coreGeometry = new THREE.BoxGeometry(coreSize, coreSize, coreSize);
-            const coreMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
-            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            const core = new THREE.Mesh(coreGeometry, innerMaterial); // Usa o material compartilhado
             cubeGroup.add(core);
             
             // Cores das faces do cubo mágico
@@ -232,12 +244,12 @@
                         if (x === 0 && y === 0 && z === 0) continue;
 
                         const materials = [
-                            (x === 1) ? new THREE.MeshLambertMaterial({ color: colors.right }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // right
-                            (x === -1) ? new THREE.MeshLambertMaterial({ color: colors.left }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // left
-                            (y === 1) ? new THREE.MeshLambertMaterial({ color: colors.up }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // up
-                            (y === -1) ? new THREE.MeshLambertMaterial({ color: colors.down }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // down
-                            (z === 1) ? new THREE.MeshLambertMaterial({ color: colors.front }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // front
-                            (z === -1) ? new THREE.MeshLambertMaterial({ color: colors.back }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a })  // back
+                            (x === 1) ? new THREE.MeshBasicMaterial({ color: colors.right }) : innerMaterial, // right
+                            (x === -1) ? new THREE.MeshBasicMaterial({ color: colors.left }) : innerMaterial, // left
+                            (y === 1) ? new THREE.MeshBasicMaterial({ color: colors.up }) : innerMaterial, // up
+                            (y === -1) ? new THREE.MeshBasicMaterial({ color: colors.down }) : innerMaterial, // down
+                            (z === 1) ? new THREE.MeshBasicMaterial({ color: colors.front }) : innerMaterial, // front
+                            (z === -1) ? new THREE.MeshBasicMaterial({ color: colors.back }) : innerMaterial  // back
                         ];
 
                         const geometry = new THREE.BoxGeometry(pieceSize, pieceSize, pieceSize);
