@@ -49,7 +49,7 @@
 
         // --- Variáveis Globais ---
         let scene, camera, renderer, controls;
-        let cubeGroup;
+        let cubeGroup, piecesGroup;
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
@@ -104,9 +104,18 @@
         // --- Criação do Cubo ---
         function createRubiksCube() {
             cubeGroup = new THREE.Group();
+            piecesGroup = new THREE.Group();
+            cubeGroup.add(piecesGroup);
+
             const pieceSize = 1;
             const gap = 0.05;
             const totalSize = pieceSize + gap;
+
+            // Adiciona o núcleo central para preencher os vãos
+            const coreGeometry = new THREE.BoxGeometry(3, 3, 3);
+            const coreMaterial = new THREE.MeshBasicMaterial({ color: 0x101010 });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            cubeGroup.add(core);
             
             // Cores das faces do cubo mágico
             const colors = {
@@ -137,7 +146,7 @@
                         const piece = new THREE.Mesh(geometry, materials);
                         piece.position.set(x * totalSize, y * totalSize, z * totalSize);
                         piece.userData.originalPosition = piece.position.clone();
-                        cubeGroup.add(piece);
+                        piecesGroup.add(piece);
                     }
                 }
             }
@@ -152,7 +161,7 @@
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(cubeGroup.children);
+            const intersects = raycaster.intersectObjects(piecesGroup.children);
 
             if (intersects.length > 0) {
                 isDragging = true;
@@ -251,7 +260,7 @@ function determineAndRotateSlice(dragVector) {
 
         function getSlice(axis, position) {
             const slice = [];
-            cubeGroup.children.forEach(child => {
+            piecesGroup.children.forEach(child => {
                 if (Math.abs(child.position.dot(axis) - position.dot(axis)) < 0.1) {
                     slice.push(child);
                 }
