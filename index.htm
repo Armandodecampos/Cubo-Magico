@@ -52,6 +52,9 @@
         let cubeGroup, piecesGroup;
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
+        const pieceSize = 1;
+        const gap = 0.05;
+        const totalSize = pieceSize + gap;
 
         // Estado da interação
         let isDragging = false;
@@ -106,10 +109,6 @@
             cubeGroup = new THREE.Group();
             piecesGroup = new THREE.Group();
             cubeGroup.add(piecesGroup);
-
-            const pieceSize = 1;
-            const gap = 0.05;
-            const totalSize = pieceSize + gap;
 
             // Adiciona o núcleo central para preencher os vãos
             const coreGeometry = new THREE.BoxGeometry(3, 3, 3);
@@ -302,9 +301,11 @@ function determineAndRotateSlice(dragVector) {
                         const piece = pivot.children[0];
                         // Atualiza a matriz do objeto antes de re-anexar
                         piece.updateMatrixWorld();
-                        cubeGroup.attach(piece);
-                        // Arredonda a posição para evitar erros de ponto flutuante
-                        piece.position.round();
+                        piecesGroup.attach(piece);
+                        // Arredonda a posição para a grade com vãos
+                        piece.position.x = Math.round(piece.position.x / totalSize) * totalSize;
+                        piece.position.y = Math.round(piece.position.y / totalSize) * totalSize;
+                        piece.position.z = Math.round(piece.position.z / totalSize) * totalSize;
                     }
                     
                     scene.remove(pivot);
