@@ -150,10 +150,8 @@
             // Controles de Trackball (para girar livremente)
             controls = new TrackballControls(camera, renderer.domElement);
             controls.rotateSpeed = 5.0;
-            controls.zoomSpeed = 1.2;
-            controls.panSpeed = 0.8;
-            controls.noZoom = false;
-            controls.noPan = false;
+            controls.noZoom = true; // Desabilita o zoom pela roda do mouse
+            controls.noPan = true;  // Desabilita o pan (arrastar)
             controls.staticMoving = true;
             controls.dynamicDampingFactor = 0.15;
             
