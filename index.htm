@@ -29,10 +29,6 @@
     </style>
 </head>
 <body>
-    <div id="info">
-        Arraste o fundo para girar o cubo. Arraste uma face para mover as peças.
-    </div>
-
     <!-- Importmap para Three.js e OrbitControls -->
     <script type="importmap">
     {
@@ -123,8 +119,8 @@
                 back:   0xffa500, // Laranja
                 up:     0xffffff, // Branco
                 down:   0xffff00, // Amarelo
-                left:   0x0000ff, // Azul
-                right:  0x00ff00  // Verde
+                left:   0x00ff00, // Verde
+                right:  0x0000ff  // Azul
             };
 
             for (let x = -1; x <= 1; x++) {
@@ -145,12 +141,14 @@
                         const geometry = new THREE.BoxGeometry(pieceSize, pieceSize, pieceSize);
                         const piece = new THREE.Mesh(geometry, materials);
                         piece.position.set(x * totalSize, y * totalSize, z * totalSize);
-                        piece.userData.originalPosition = piece.position.clone();
+                        // Assign a unique ID based on initial position for stable state saving
+                        piece.userData.id = `${x}_${y}_${z}`;
                         piecesGroup.add(piece);
                     }
                 }
             }
             scene.add(cubeGroup);
+            loadState(); // Carrega o estado salvo ao criar o cubo
         }
 
         // --- Lógica de Interação ---
@@ -319,6 +317,7 @@ function determineAndRotateSlice(dragVector) {
                     
                     scene.remove(pivot);
                     isAnimating = false;
+                    saveState(); // Salva o estado após a rotação
                     controls.enabled = true; // Reativa os controles
                 }
             }
@@ -337,6 +336,33 @@ function determineAndRotateSlice(dragVector) {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
+        }
+
+        // --- Funções de Estado ---
+        function saveState() {
+            const state = piecesGroup.children.map(piece => ({
+                id: piece.userData.id,
+                position: piece.position.toArray(),
+                quaternion: piece.quaternion.toArray()
+            }));
+            localStorage.setItem('rubiksCubeState', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const savedStateJSON = localStorage.getItem('rubiksCubeState');
+            if (savedStateJSON) {
+                const savedState = JSON.parse(savedStateJSON);
+                // Use a map for efficient lookup
+                const stateMap = new Map(savedState.map(s => [s.id, s]));
+
+                piecesGroup.children.forEach(piece => {
+                    const pieceState = stateMap.get(piece.userData.id);
+                    if (pieceState) {
+                        piece.position.fromArray(pieceState.position);
+                        piece.quaternion.fromArray(pieceState.quaternion);
+                    }
+                });
+            }
         }
 
         // --- Iniciar ---
