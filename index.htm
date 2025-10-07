@@ -107,15 +107,14 @@
     {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-            "three/addons/controls/TrackballControls.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/TrackballControls.js"
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
         }
     }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
-        import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
         // --- Variáveis Globais ---
         let scene, camera, renderer, controls;
@@ -148,13 +147,13 @@
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // Controles de Trackball (para girar livremente)
-            controls = new TrackballControls(camera, renderer.domElement);
-            controls.rotateSpeed = 5.0;
-            controls.noZoom = true; // Desabilita o zoom pela roda do mouse
-            controls.noPan = true;  // Desabilita o pan (arrastar)
-            controls.staticMoving = true;
-            controls.dynamicDampingFactor = 0.15;
+            // Controles de Órbita (para girar o cubo)
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.1;
+            controls.rotateSpeed = 0.7;
+            controls.enableZoom = false; // Desabilita o zoom pela roda do mouse
+            controls.enablePan = false; // Desabilita o pan (arrastar)
             
             // Iluminação
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
