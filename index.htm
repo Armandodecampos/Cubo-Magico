@@ -195,50 +195,59 @@
             // Os controles serão reativados após a animação
         }
 
-        function determineAndRotateSlice(dragVector) {
-            if (!intersectedObject) return;
-            
-            const piece = intersectedObject.object;
-            const normal = intersectedObject.face.normal.clone();
-            // Transforma a normal da face para o espaço do mundo
-            normal.transformDirection(piece.matrixWorld);
-            normal.round(); // Arredonda para o eixo mais próximo
+function determineAndRotateSlice(dragVector) {
+    if (!intersectedObject) return;
 
-            const cameraDirection = new THREE.Vector3();
-            camera.getWorldDirection(cameraDirection);
-            
-            // Determina os eixos de movimento na tela
-            const screenUp = new THREE.Vector3(0, 1, 0);
-            const screenRight = new THREE.Vector3(1, 0, 0);
+    const piece = intersectedObject.object;
+    const faceNormal = intersectedObject.face.normal.clone();
 
-            let axis, angle;
-            
-            // Movimento predominantemente horizontal
-            if (Math.abs(dragVector.x) > Math.abs(dragVector.y)) {
-                 if (Math.abs(normal.y) > 0.5) { // Clicou em cima ou embaixo
-                    axis = new THREE.Vector3(0, 0, 1); // Eixo Z
-                    angle = -Math.sign(dragVector.x) * (Math.PI / 2);
-                    if (normal.y > 0.5) angle *= -1;
-                } else { // Clicou nos lados
-                    axis = new THREE.Vector3(0, 1, 0); // Eixo Y
-                    angle = Math.sign(dragVector.x) * (Math.PI / 2);
-                }
-            } 
-            // Movimento predominantemente vertical
-            else {
-                if (Math.abs(normal.y) > 0.5) { // Clicou em cima ou embaixo
-                    axis = new THREE.Vector3(1, 0, 0); // Eixo X
-                    angle = Math.sign(dragVector.y) * (Math.PI / 2);
-                    if (normal.y > 0.5) angle *= -1;
-                } else { // Clicou nos lados
-                    axis = new THREE.Vector3(1, 0, 0); // Eixo X
-                    angle = -Math.sign(dragVector.y) * (Math.PI / 2);
-                }
-            }
+    // 1. Transformar a normal da face para o espaço do mundo
+    const worldNormal = faceNormal.clone().transformDirection(piece.matrixWorld).round();
 
-            const slice = getSlice(axis, piece.position);
-            animateRotation(slice, axis, angle);
-        }
+    // 2. Determinar a direção do arrasto no espaço da tela
+    const screenDragVector = new THREE.Vector2(dragVector.x, dragVector.y).normalize();
+
+    // 3. Determinar os eixos da câmera no espaço do mundo
+    const cameraRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+    const cameraUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+
+    // 4. Mapear o arrasto 2D da tela para um vetor de movimento 3D no mundo
+    const worldDragVector = cameraRight.multiplyScalar(screenDragVector.x).add(
+        cameraUp.multiplyScalar(-screenDragVector.y) // Y é invertido no espaço da tela
+    ).normalize();
+
+    // 5. Determinar o eixo de rotação
+    // O eixo de rotação é perpendicular tanto à normal da face quanto à direção do arrasto no mundo
+    let rotationAxis = new THREE.Vector3().crossVectors(worldNormal, worldDragVector).normalize();
+
+    // 6. "Travar" o eixo ao eixo principal mais próximo (X, Y ou Z)
+    const maxComponent = Math.max(Math.abs(rotationAxis.x), Math.abs(rotationAxis.y), Math.abs(rotationAxis.z));
+    if (Math.abs(rotationAxis.x) === maxComponent) {
+        rotationAxis.set(Math.sign(rotationAxis.x), 0, 0);
+    } else if (Math.abs(rotationAxis.y) === maxComponent) {
+        rotationAxis.set(0, Math.sign(rotationAxis.y), 0);
+    } else {
+        rotationAxis.set(0, 0, Math.sign(rotationAxis.z));
+    }
+
+    // 7. Determinar a direção (ângulo) da rotação
+    // Projetamos o vetor de arrasto mundial no plano perpendicular ao eixo de rotação
+    // e verificamos se ele está alinhado com a normal da face (ou oposto a ela)
+    const projectedDrag = worldDragVector.clone();
+    const cross = new THREE.Vector3().crossVectors(rotationAxis, worldNormal);
+    const dot = projectedDrag.dot(cross);
+    const angle = (Math.PI / 2) * Math.sign(dot);
+
+
+    // 8. Obter a fatia e animar
+    const slice = getSlice(rotationAxis, piece.position);
+    if (slice.length > 0) {
+        animateRotation(slice, rotationAxis, angle);
+    } else {
+        // Se nenhuma fatia for encontrada, reativa os controles
+        controls.enabled = true;
+    }
+}
 
         function getSlice(axis, position) {
             const slice = [];
