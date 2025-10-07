@@ -156,6 +156,8 @@
             controls.rotateSpeed = 0.7;
             controls.enableZoom = false; // Desabilita o zoom pela roda do mouse
             controls.enablePan = false; // Desabilita o pan (arrastar)
+            controls.minPolarAngle = -Infinity; // Permite rotação completa para cima
+            controls.maxPolarAngle = Infinity;  // Permite rotação completa para baixo
             
             // Criar o cubo
             createRubiksCube();
@@ -224,7 +226,8 @@
             // Adiciona o núcleo central para preencher os vãos
             const coreSize = pieceSize + 2 * gap;
             const coreGeometry = new THREE.BoxGeometry(coreSize, coreSize, coreSize);
-            const core = new THREE.Mesh(coreGeometry, innerMaterial); // Usa o material compartilhado
+            const coreMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Material preto para o núcleo
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
             cubeGroup.add(core);
             
             // Cores das faces do cubo mágico
@@ -276,6 +279,7 @@
             const intersects = raycaster.intersectObjects(piecesGroup.children);
 
             if (intersects.length > 0) {
+                event.stopImmediatePropagation();
                 isDragging = true;
                 controls.enabled = false;
                 intersectedObject = {
