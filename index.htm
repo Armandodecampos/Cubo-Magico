@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Cubo 3D Interativo</title>
     <style>
         body {
@@ -79,13 +79,9 @@
             controls.enableDamping = true;
             controls.dampingFactor = 0.1;
             controls.rotateSpeed = 0.7;
+            controls.enablePan = false;
+            controls.enableZoom = false;
             
-            // Iluminação
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            directionalLight.position.set(5, 10, 7.5);
-            scene.add(directionalLight);
 
             // Criar o cubo
             createRubiksCube();
@@ -130,12 +126,12 @@
                         if (x === 0 && y === 0 && z === 0) continue;
 
                         const materials = [
-                            (x === 1) ? new THREE.MeshLambertMaterial({ color: colors.right }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // right
-                            (x === -1) ? new THREE.MeshLambertMaterial({ color: colors.left }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // left
-                            (y === 1) ? new THREE.MeshLambertMaterial({ color: colors.up }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // up
-                            (y === -1) ? new THREE.MeshLambertMaterial({ color: colors.down }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // down
-                            (z === 1) ? new THREE.MeshLambertMaterial({ color: colors.front }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // front
-                            (z === -1) ? new THREE.MeshLambertMaterial({ color: colors.back }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a })  // back
+                            (x === 1) ? new THREE.MeshBasicMaterial({ color: colors.right }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // right
+                            (x === -1) ? new THREE.MeshBasicMaterial({ color: colors.left }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // left
+                            (y === 1) ? new THREE.MeshBasicMaterial({ color: colors.up }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // up
+                            (y === -1) ? new THREE.MeshBasicMaterial({ color: colors.down }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // down
+                            (z === 1) ? new THREE.MeshBasicMaterial({ color: colors.front }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // front
+                            (z === -1) ? new THREE.MeshBasicMaterial({ color: colors.back }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a })  // back
                         ];
 
                         const geometry = new THREE.BoxGeometry(pieceSize, pieceSize, pieceSize);
