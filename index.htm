@@ -133,12 +133,12 @@
                         if (x === 0 && y === 0 && z === 0) continue;
 
                         const materials = [
-                            (x === 1) ? new THREE.MeshLambertMaterial({ color: colors.right }) : new THREE.MeshLambertMaterial({ color: 0x1c1c1c }), // right
-                            (x === -1) ? new THREE.MeshLambertMaterial({ color: colors.left }) : new THREE.MeshLambertMaterial({ color: 0x1c1c1c }), // left
-                            (y === 1) ? new THREE.MeshLambertMaterial({ color: colors.up }) : new THREE.MeshLambertMaterial({ color: 0x1c1c1c }), // up
-                            (y === -1) ? new THREE.MeshLambertMaterial({ color: colors.down }) : new THREE.MeshLambertMaterial({ color: 0x1c1c1c }), // down
-                            (z === 1) ? new THREE.MeshLambertMaterial({ color: colors.front }) : new THREE.MeshLambertMaterial({ color: 0x1c1c1c }), // front
-                            (z === -1) ? new THREE.MeshLambertMaterial({ color: colors.back }) : new THREE.MeshLambertMaterial({ color: 0x1c1c1c })  // back
+                            (x === 1) ? new THREE.MeshLambertMaterial({ color: colors.right }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // right
+                            (x === -1) ? new THREE.MeshLambertMaterial({ color: colors.left }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // left
+                            (y === 1) ? new THREE.MeshLambertMaterial({ color: colors.up }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // up
+                            (y === -1) ? new THREE.MeshLambertMaterial({ color: colors.down }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // down
+                            (z === 1) ? new THREE.MeshLambertMaterial({ color: colors.front }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a }), // front
+                            (z === -1) ? new THREE.MeshLambertMaterial({ color: colors.back }) : new THREE.MeshLambertMaterial({ color: 0x1a1a1a })  // back
                         ];
 
                         const geometry = new THREE.BoxGeometry(pieceSize, pieceSize, pieceSize);
