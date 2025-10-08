@@ -450,8 +450,8 @@ function animateRotation(slice, axis, angle, onComplete) {
             const startTime = Date.now();
             
             function step() {
-                const elapsedTime = Date.now() - startTime;
-                const progress = Math.min(elapsedTime / duration, 1);
+                const animationElapsedTime = Date.now() - startTime;
+                const progress = Math.min(animationElapsedTime / duration, 1);
                 
                 // Ease-out-quad
                 const easedProgress = progress * (2 - progress);
@@ -488,9 +488,10 @@ function animateRotation(slice, axis, angle, onComplete) {
                     isAnimating = false;
                     saveState(); // Salva o estado após a rotação
 
+                    // A verificação `elapsedTime > 0` usa a variável global do cronômetro.
                     if (checkIfSolved() && elapsedTime > 0) {
-                        stopTimer();
-                        document.getElementById('final-time').textContent = formatTime(elapsedTime);
+                        stopTimer(); // Para o cronômetro e atualiza o `elapsedTime` global.
+                        document.getElementById('final-time').textContent = formatTime(elapsedTime); // Usa o `elapsedTime` global.
                         document.getElementById('results-modal').style.display = 'flex';
                     }
 
