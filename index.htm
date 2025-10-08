@@ -830,6 +830,8 @@ function animateRotation(slice, axis, angle, onComplete) {
                     resolve();
                     return;
                 }
+                // Limpa o estado anterior para evitar carregar um cubo corrompido em caso de atualização.
+                localStorage.removeItem('rubiksCubeState');
                 resetTimer(); // Zera o cronômetro ao embaralhar
                 isShuffling = true; // Inicia o modo de embaralhamento
                 controls.enabled = false; // Desativa os controles durante o embaralhamento
