@@ -606,7 +606,8 @@ function animateRotation(slice, axis, angle, onComplete) {
         // --- Funções de Estado ---
         function checkIfSolved() {
             // A cube is solved if every piece is in its original position and orientation.
-            const epsilon = 0.01;
+            // Increased epsilon to account for floating-point inaccuracies after many rotations.
+            const epsilon = 0.1;
             const identityQuaternion = new THREE.Quaternion();
 
             for (const piece of piecesGroup.children) {
