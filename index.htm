@@ -232,6 +232,7 @@
         let dragStartPoint = { x: 0, y: 0 };
         let intersectedObject = null;
         let isAnimating = false;
+        let hasInteracted = false; // Previne o salvamento de estado antes da interação
         let isShuffling = false; // Novo: para controlar o estado de embaralhamento
 
         // Estado do cronômetro
@@ -452,6 +453,7 @@ function determineAndRotateSlice(dragVector) {
         }
 
 function animateRotation(slice, axis, angle, onComplete) {
+    hasInteracted = true; // Registra que o usuário interagiu com o cubo
     // Se o modal de resultados estiver aberto, esconde e reseta o timer para um novo jogo
     const resultsModal = document.getElementById('results-modal');
     if (resultsModal.style.display === 'flex') {
@@ -614,29 +616,27 @@ function animateRotation(slice, axis, angle, onComplete) {
 
             for (const piece of piecesGroup.children) {
                 // --- Verificação de Posição (baseada em grade) ---
-                // Obtém as coordenadas originais da grade do ID da peça (ex: [1, 0, -1])
                 const idCoords = piece.userData.id.split('_').map(Number);
-
-                // Calcula as coordenadas atuais da grade arredondando a posição da peça
                 const currentGridX = Math.round(piece.position.x / totalSize);
                 const currentGridY = Math.round(piece.position.y / totalSize);
                 const currentGridZ = Math.round(piece.position.z / totalSize);
-
-                // Compara as coordenadas da grade. Isso é imune a erros de ponto flutuante.
                 if (currentGridX !== idCoords[0] || currentGridY !== idCoords[1] || currentGridZ !== idCoords[2]) {
-                    return false; // A peça não está na sua célula da grade original.
+                    return false;
                 }
 
-                // --- Verificação de Orientação (produto escalar com tolerância) ---
-                // Se os quatérnios q e p representam a mesma rotação, |q.dot(p)| será 1.
+                // --- Verificação de Orientação ---
                 if (Math.abs(piece.quaternion.dot(identityQuaternion)) < 1.0 - orientationEpsilon) {
-                    return false; // A peça não está na sua orientação original.
+                    return false;
                 }
             }
-            return true; // Todas as peças estão resolvidas.
+            return true;
         }
 
         function saveState() {
+            // Só salva o estado se o usuário tiver interagido com o cubo,
+            // para evitar que o estado inicial (tempo 0) sobrescreva um estado salvo ao recarregar.
+            if (!hasInteracted) return;
+
             const state = {
                 pieces: piecesGroup.children.map(piece => ({
                     id: piece.userData.id,
@@ -671,14 +671,22 @@ function animateRotation(slice, axis, angle, onComplete) {
                     if (pieceState) {
                         piece.position.fromArray(pieceState.position);
                         piece.quaternion.fromArray(pieceState.quaternion);
+                        // Força a atualização da matriz do objeto para refletir as novas propriedades.
+                        piece.updateMatrixWorld(true);
                     }
                 });
             }
 
             updateStopwatchDisplay();
 
-            // O cronômetro agora só será iniciado pela interação do usuário,
-            // então a chamada para startTimer() foi removida daqui.
+            // Após carregar o estado, verifica se o cubo já está resolvido.
+            // A flag hasInteracted em saveState() previne o problema do tempo.
+            if (checkIfSolved()) {
+                stopTimer(); // Garante que o estado do botão play/pause esteja correto.
+                document.getElementById('final-time').textContent = formatTime(elapsedTime);
+                document.getElementById('results-modal').style.display = 'flex';
+                controls.enabled = false; // Desativa os controles, pois o jogo acabou.
+            }
         }
 
         // --- Iniciar ---
@@ -792,6 +800,7 @@ function animateRotation(slice, axis, angle, onComplete) {
         function fullReset() {
             if (isAnimating) return;
 
+            hasInteracted = true; // O reset é uma interação
             // Zera o cronômetro
             resetTimer();
 
