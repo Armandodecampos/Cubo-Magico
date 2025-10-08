@@ -610,25 +610,99 @@ function animateRotation(slice, axis, angle, onComplete) {
 
 
         // --- Funções de Estado ---
-        function checkIfSolved() {
-            const orientationEpsilon = 0.1; // Tolerância para a verificação do quatérnio
-            const identityQuaternion = new THREE.Quaternion();
-
+        function getPieceAt(gridPosition) {
+            // Encontra uma peça numa localização específica da grelha (ex: [1, 0, 0])
             for (const piece of piecesGroup.children) {
-                // --- Verificação de Posição (baseada em grade) ---
-                const idCoords = piece.userData.id.split('_').map(Number);
                 const currentGridX = Math.round(piece.position.x / totalSize);
                 const currentGridY = Math.round(piece.position.y / totalSize);
                 const currentGridZ = Math.round(piece.position.z / totalSize);
-                if (currentGridX !== idCoords[0] || currentGridY !== idCoords[1] || currentGridZ !== idCoords[2]) {
-                    return false;
-                }
-
-                // --- Verificação de Orientação ---
-                if (Math.abs(piece.quaternion.dot(identityQuaternion)) < 1.0 - orientationEpsilon) {
-                    return false;
+                if (currentGridX === gridPosition.x && currentGridY === gridPosition.y && currentGridZ === gridPosition.z) {
+                    return piece;
                 }
             }
+            return null;
+        }
+
+        function getFaceColor(piece, worldDirection) {
+            // Esta função determina a cor da face de uma peça que aponta numa determinada direção do mundo.
+            if (!piece) return null;
+
+            // Transforma a direção do mundo para a direção local do objeto para determinar qual a face que está a ser "vista".
+            const localDirection = new THREE.Vector3();
+            piece.worldToLocal(localDirection.copy(piece.position).add(worldDirection));
+            localDirection.normalize();
+
+            // As normais das faces locais da geometria da peça
+            const normals = [
+                new THREE.Vector3(1, 0, 0),  // Direita (+X) -> Índice de material 0
+                new THREE.Vector3(-1, 0, 0), // Esquerda (-X) -> Índice de material 1
+                new THREE.Vector3(0, 1, 0),  // Cima (+Y) -> Índice de material 2
+                new THREE.Vector3(0, -1, 0), // Baixo (-Y) -> Índice de material 3
+                new THREE.Vector3(0, 0, 1),  // Frente (+Z) -> Índice de material 4
+                new THREE.Vector3(0, 0, -1)  // Trás (-Z) -> Índice de material 5
+            ];
+
+            let bestMatchIndex = -1;
+            let maxDot = -Infinity;
+
+            // Encontra a normal local que melhor corresponde à direção da câmara
+            for (let i = 0; i < normals.length; i++) {
+                const dot = localDirection.dot(normals[i]);
+                if (dot > maxDot) {
+                    maxDot = dot;
+                    bestMatchIndex = i;
+                }
+            }
+
+            // Retorna a cor do material correspondente se for encontrado
+            if (bestMatchIndex !== -1 && piece.material[bestMatchIndex]) {
+                return piece.material[bestMatchIndex].color.getHex();
+            }
+            return null;
+        }
+
+        function checkIfSolved() {
+            // Define as 6 faces do cubo pela sua normal, eixo e camada
+            const faces = [
+                { normal: new THREE.Vector3(1, 0, 0), axis: 'x', layer: 1 },
+                { normal: new THREE.Vector3(-1, 0, 0), axis: 'x', layer: -1 },
+                { normal: new THREE.Vector3(0, 1, 0), axis: 'y', layer: 1 },
+                { normal: new THREE.Vector3(0, -1, 0), axis: 'y', layer: -1 },
+                { normal: new THREE.Vector3(0, 0, 1), axis: 'z', layer: 1 },
+                { normal: new THREE.Vector3(0, 0, -1), axis: 'z', layer: -1 }
+            ];
+
+            for (const face of faces) {
+                // 1. Encontrar a peça central e obter a cor alvo para a face
+                const centerPiecePosition = new THREE.Vector3();
+                centerPiecePosition[face.axis] = face.layer;
+                const centerPiece = getPieceAt(centerPiecePosition);
+                const targetColor = getFaceColor(centerPiece, face.normal);
+
+                // Se não for possível determinar a cor (condição de erro), considera como não resolvido
+                if (targetColor === null) return false;
+
+                // 2. Iterar sobre todas as 9 posições da face para verificar se correspondem à cor alvo
+                const otherAxes = ['x', 'y', 'z'].filter(ax => ax !== face.axis);
+                for (let i = -1; i <= 1; i++) {
+                    for (let j = -1; j <= 1; j++) {
+                        const piecePosition = new THREE.Vector3();
+                        piecePosition[face.axis] = face.layer;
+                        piecePosition[otherAxes[0]] = i;
+                        piecePosition[otherAxes[1]] = j;
+
+                        const piece = getPieceAt(piecePosition);
+                        const pieceColor = getFaceColor(piece, face.normal);
+
+                        // Se qualquer cor de peça não corresponder à cor alvo, o cubo não está resolvido
+                        if (pieceColor !== targetColor) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            // Se todas as 6 faces forem monocromáticas, o cubo está resolvido
             return true;
         }
 
