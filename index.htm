@@ -517,8 +517,8 @@ function animateRotation(slice, axis, angle, onComplete) {
                     isAnimating = false;
                     saveState(); // Salva o estado após a rotação
 
-                    // A verificação `elapsedTime > 0` usa a variável global do cronômetro.
-                    if (checkIfSolved() && elapsedTime > 0) {
+                    // A verificação do tempo foi removida para garantir que a conclusão seja sempre registrada.
+                    if (checkIfSolved()) {
                         stopTimer(); // Para o cronômetro e atualiza o `elapsedTime` global.
                         document.getElementById('final-time').textContent = formatTime(elapsedTime); // Usa o `elapsedTime` global.
                         document.getElementById('results-modal').style.display = 'flex';
