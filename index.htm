@@ -518,8 +518,8 @@ function animateRotation(slice, axis, angle, onComplete) {
                         stopTimer(); // Para o cronômetro e atualiza o `elapsedTime` global.
                         document.getElementById('final-time').textContent = formatTime(elapsedTime); // Usa o `elapsedTime` global.
                         document.getElementById('results-modal').style.display = 'flex';
-                    } else {
-                        controls.enabled = true; // Só reativa se o cubo não estiver resolvido
+                    } else if (!isShuffling) {
+                        controls.enabled = true; // Só reativa se o cubo não estiver resolvido E não estiver embaralhando
                     }
 
                     if (onComplete) {
