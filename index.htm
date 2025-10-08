@@ -207,6 +207,7 @@
         let dragStartPoint = { x: 0, y: 0 };
         let intersectedObject = null;
         let isAnimating = false;
+        let isShuffling = false; // Novo: para controlar o estado de embaralhamento
 
         // Estado do cronômetro
         let timerRunning = false;
@@ -434,7 +435,9 @@ function animateRotation(slice, axis, angle, onComplete) {
         return;
     }
             isAnimating = true;
-            startTimer(); // Inicia o cronômetro em qualquer movimento
+            if (!isShuffling) { // Só inicia o timer se não estiver embaralhando
+                startTimer();
+            }
 
             const pivot = new THREE.Group();
             scene.add(pivot);
@@ -557,11 +560,16 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         function handleVisibilityChange() {
             if (document.hidden) {
-                // Se a aba ficar inativa, pausa o cronômetro
+                // Se a aba ficar inativa, pausa o cronômetro e salva o estado
                 stopTimer();
+                saveState();
             } else {
                 // Se a aba voltar a ficar ativa, continua o cronômetro
-                startTimer();
+                // Não é necessário carregar o estado aqui, pois ele é carregado no início
+                // e o startTimer() já usa o elapsedTime mais recente.
+                if (!checkIfSolved()) { // Só retoma o timer se o cubo não estiver resolvido
+                   startTimer();
+                }
             }
         }
 
@@ -593,21 +601,35 @@ function animateRotation(slice, axis, angle, onComplete) {
         }
 
         function saveState() {
-            const state = piecesGroup.children.map(piece => ({
-                id: piece.userData.id,
-                position: piece.position.toArray(),
-                quaternion: piece.quaternion.toArray()
-            }));
+            const state = {
+                pieces: piecesGroup.children.map(piece => ({
+                    id: piece.userData.id,
+                    position: piece.position.toArray(),
+                    quaternion: piece.quaternion.toArray()
+                })),
+                elapsedTime: elapsedTime
+            };
             localStorage.setItem('rubiksCubeState', JSON.stringify(state));
         }
 
         function loadState() {
             const savedStateJSON = localStorage.getItem('rubiksCubeState');
-            if (savedStateJSON) {
-                const savedState = JSON.parse(savedStateJSON);
-                // Use a map for efficient lookup
-                const stateMap = new Map(savedState.map(s => [s.id, s]));
+            if (!savedStateJSON) return;
 
+            const savedData = JSON.parse(savedStateJSON);
+            let piecesState;
+
+            // Compatibilidade com a versão anterior
+            if (Array.isArray(savedData)) {
+                piecesState = savedData;
+                elapsedTime = 0; // Estado antigo não tinha tempo salvo
+            } else {
+                piecesState = savedData.pieces;
+                elapsedTime = savedData.elapsedTime || 0;
+            }
+
+            if (piecesState) {
+                const stateMap = new Map(piecesState.map(s => [s.id, s]));
                 piecesGroup.children.forEach(piece => {
                     const pieceState = stateMap.get(piece.userData.id);
                     if (pieceState) {
@@ -615,6 +637,13 @@ function animateRotation(slice, axis, angle, onComplete) {
                         piece.quaternion.fromArray(pieceState.quaternion);
                     }
                 });
+            }
+
+            updateStopwatchDisplay();
+
+            // Se o tempo foi carregado e o cubo não está resolvido, continua o cronômetro
+            if (elapsedTime > 0 && !checkIfSolved()) {
+                startTimer();
             }
         }
 
@@ -669,6 +698,7 @@ function animateRotation(slice, axis, angle, onComplete) {
         function shuffleCube(moves = 20) {
             if (isAnimating) return;
             resetTimer(); // Zera o cronômetro ao embaralhar
+            isShuffling = true; // Inicia o modo de embaralhamento
             controls.enabled = false; // Desativa os controles durante o embaralhamento
 
             let moveCount = 0;
@@ -676,6 +706,7 @@ function animateRotation(slice, axis, angle, onComplete) {
             function performRandomMove() {
                 if (moveCount >= moves) {
                     controls.enabled = true; // Reativa os controles ao final
+                    isShuffling = false; // Finaliza o modo de embaralhamento
                     saveState(); // Salva o estado final
                     return;
                 }
