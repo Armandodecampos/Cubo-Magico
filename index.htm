@@ -27,14 +27,31 @@
             background-color: rgba(0,0,0,0.2);
             border-radius: 10px;
         }
-        #stopwatch {
+        #timer-container {
             position: fixed;
             bottom: 20px;
             left: 20px;
+            display: flex;
+            align-items: center;
+            z-index: 101;
+        }
+        #stopwatch {
             font-size: 32px;
             font-family: 'Courier New', Courier, monospace;
             color: #fff;
-            z-index: 101;
+            margin-right: 15px;
+        }
+        .timer-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            margin: 0 5px;
+        }
+        .timer-btn:hover {
+            color: #007bff;
         }
         #settings-btn {
             position: fixed;
@@ -151,7 +168,11 @@
     </style>
 </head>
 <body>
-    <div id="stopwatch">00:00.00</div>
+    <div id="timer-container">
+        <div id="stopwatch">00:00.00</div>
+        <button id="play-pause-btn" class="timer-btn"><i class="fas fa-play"></i></button>
+        <button id="timer-reset-btn" class="timer-btn"><i class="fas fa-sync-alt"></i></button>
+    </div>
     <div id="settings-btn">
         <i class="fas fa-cog"></i>
     </div>
@@ -215,6 +236,8 @@
         let elapsedTime = 0;
         let timerInterval;
         const stopwatchElement = document.getElementById('stopwatch');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playPauseIcon = playPauseBtn.querySelector('i');
 
 
         // --- Configuração Inicial ---
@@ -524,6 +547,8 @@ function animateRotation(slice, axis, angle, onComplete) {
             if (!timerRunning) {
                 timerRunning = true;
                 startTime = Date.now() - elapsedTime;
+                playPauseIcon.classList.remove('fa-play');
+                playPauseIcon.classList.add('fa-pause');
             }
         }
 
@@ -531,6 +556,8 @@ function animateRotation(slice, axis, angle, onComplete) {
             if (timerRunning) {
                 timerRunning = false;
                 elapsedTime = Date.now() - startTime;
+                playPauseIcon.classList.remove('fa-pause');
+                playPauseIcon.classList.add('fa-play');
             }
         }
 
@@ -764,6 +791,24 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         resetBtn.addEventListener('click', resetCubeState);
 
+        // --- Lógica dos Botões do Cronômetro ---
+        const timerResetBtn = document.getElementById('timer-reset-btn');
+
+        playPauseBtn.addEventListener('click', () => {
+            // Não permite pausar/iniciar durante uma animação
+            if (isAnimating) return;
+
+            if (timerRunning) {
+                stopTimer();
+            } else {
+                // Só inicia o cronômetro se o cubo não estiver resolvido
+                if (!checkIfSolved()) {
+                    startTimer();
+                }
+            }
+        });
+
+        timerResetBtn.addEventListener('click', resetCubeState);
     </script>
 </body>
 </html>
