@@ -193,6 +193,10 @@
                 <label for="zoom-slider">Zoom</label>
                 <input type="range" min="4" max="15" value="8" class="slider" id="zoom-slider">
             </div>
+            <div class="slider-container">
+                <label for="shuffle-slider">Movimentos para Embaralhar: <span id="shuffle-moves-value">20</span></label>
+                <input type="range" min="1" max="30" value="20" class="slider" id="shuffle-slider">
+            </div>
             <div class="modal-buttons">
                 <button id="shuffle-btn">Embaralhar</button>
                 <button id="reset-btn">Reiniciar</button>
@@ -605,29 +609,31 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         // --- Funções de Estado ---
         function checkIfSolved() {
-            // A cube is solved if every piece is in its original position and orientation.
-            // Increased epsilon to account for floating-point inaccuracies after many rotations.
-            const epsilon = 0.1;
+            const orientationEpsilon = 0.1; // Tolerância para a verificação do quatérnio
             const identityQuaternion = new THREE.Quaternion();
 
             for (const piece of piecesGroup.children) {
+                // --- Verificação de Posição (baseada em grade) ---
+                // Obtém as coordenadas originais da grade do ID da peça (ex: [1, 0, -1])
                 const idCoords = piece.userData.id.split('_').map(Number);
-                const originalPosition = new THREE.Vector3(
-                    idCoords[0] * totalSize,
-                    idCoords[1] * totalSize,
-                    idCoords[2] * totalSize
-                );
 
-                if (piece.position.distanceTo(originalPosition) > epsilon) {
-                    return false; // Piece is not in its home position.
+                // Calcula as coordenadas atuais da grade arredondando a posição da peça
+                const currentGridX = Math.round(piece.position.x / totalSize);
+                const currentGridY = Math.round(piece.position.y / totalSize);
+                const currentGridZ = Math.round(piece.position.z / totalSize);
+
+                // Compara as coordenadas da grade. Isso é imune a erros de ponto flutuante.
+                if (currentGridX !== idCoords[0] || currentGridY !== idCoords[1] || currentGridZ !== idCoords[2]) {
+                    return false; // A peça não está na sua célula da grade original.
                 }
 
-                // If quaternions q and p represent the same rotation, then |q.dot(p)| will be 1.
-                if (Math.abs(piece.quaternion.dot(identityQuaternion)) < 1.0 - epsilon) {
-                    return false; // Piece is not in its home orientation.
+                // --- Verificação de Orientação (produto escalar com tolerância) ---
+                // Se os quatérnios q e p representam a mesma rotação, |q.dot(p)| será 1.
+                if (Math.abs(piece.quaternion.dot(identityQuaternion)) < 1.0 - orientationEpsilon) {
+                    return false; // A peça não está na sua orientação original.
                 }
             }
-            return true; // All pieces are solved.
+            return true; // Todas as peças estão resolvidas.
         }
 
         function saveState() {
@@ -722,10 +728,20 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         // --- Lógica do Shuffle ---
         const shuffleBtn = document.getElementById('shuffle-btn');
-        window.shuffleCube = shuffleCube; // Expor para o teste
-        shuffleBtn.addEventListener('click', () => shuffleCube(20));
+        const shuffleSlider = document.getElementById('shuffle-slider');
+        const shuffleMovesValue = document.getElementById('shuffle-moves-value');
 
-        function shuffleCube(moves = 20) {
+        shuffleSlider.addEventListener('input', (event) => {
+            shuffleMovesValue.textContent = event.target.value;
+        });
+
+        window.shuffleCube = shuffleCube; // Expor para o teste
+        shuffleBtn.addEventListener('click', () => {
+            const moves = parseInt(shuffleSlider.value, 10);
+            shuffleCube(moves);
+        });
+
+        function shuffleCube(moves) {
             return new Promise((resolve) => {
                 if (isAnimating) {
                     resolve();
