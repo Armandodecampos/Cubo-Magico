@@ -232,6 +232,7 @@
 
         // Estado do cronômetro
         let timerRunning = false;
+        let timerWasRunningOnHide = false; // Novo: para controlar o estado da visibilidade
         let startTime = 0;
         let elapsedTime = 0;
         let timerInterval;
@@ -274,6 +275,7 @@
             renderer.domElement.addEventListener('pointermove', onPointerMove, false);
             renderer.domElement.addEventListener('pointerup', onPointerUp, false);
             document.addEventListener('visibilitychange', handleVisibilityChange, false);
+            window.addEventListener('beforeunload', saveState, false); // Salva o estado ao fechar a página
 
             // Iniciar loop de animação
             animate();
@@ -516,9 +518,10 @@ function animateRotation(slice, axis, angle, onComplete) {
                         stopTimer(); // Para o cronômetro e atualiza o `elapsedTime` global.
                         document.getElementById('final-time').textContent = formatTime(elapsedTime); // Usa o `elapsedTime` global.
                         document.getElementById('results-modal').style.display = 'flex';
+                    } else {
+                        controls.enabled = true; // Só reativa se o cubo não estiver resolvido
                     }
 
-                    controls.enabled = true; // Reativa os controles
                     if (onComplete) {
                         onComplete();
                     }
@@ -588,14 +591,12 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         function handleVisibilityChange() {
             if (document.hidden) {
-                // Se a aba ficar inativa, pausa o cronômetro e salva o estado
+                // Salva o estado do timer antes de pausar
+                timerWasRunningOnHide = timerRunning;
                 stopTimer();
-                saveState();
             } else {
-                // Se a aba voltar a ficar ativa, continua o cronômetro
-                // Não é necessário carregar o estado aqui, pois ele é carregado no início
-                // e o startTimer() já usa o elapsedTime mais recente.
-                if (!checkIfSolved()) { // Só retoma o timer se o cubo não estiver resolvido
+                // Só retoma o timer se ele estava rodando antes de a aba ficar oculta
+                if (timerWasRunningOnHide) {
                    startTimer();
                 }
             }
@@ -696,6 +697,7 @@ function animateRotation(slice, axis, angle, onComplete) {
         function closeResultsModal() {
             resultsModal.style.display = 'none';
             resetTimer();
+            controls.enabled = true; // Reativa os controles após fechar o modal
         }
 
         closeResultsBtn.onclick = closeResultsModal;
@@ -719,55 +721,65 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         // --- Lógica do Shuffle ---
         const shuffleBtn = document.getElementById('shuffle-btn');
+        window.shuffleCube = shuffleCube; // Expor para o teste
         shuffleBtn.addEventListener('click', () => shuffleCube(20));
 
         function shuffleCube(moves = 20) {
-            if (isAnimating) return;
-            resetTimer(); // Zera o cronômetro ao embaralhar
-            isShuffling = true; // Inicia o modo de embaralhamento
-            controls.enabled = false; // Desativa os controles durante o embaralhamento
-
-            let moveCount = 0;
-
-            function performRandomMove() {
-                if (moveCount >= moves) {
-                    controls.enabled = true; // Reativa os controles ao final
-                    isShuffling = false; // Finaliza o modo de embaralhamento
-                    saveState(); // Salva o estado final
+            return new Promise((resolve) => {
+                if (isAnimating) {
+                    resolve();
                     return;
                 }
+                resetTimer(); // Zera o cronômetro ao embaralhar
+                isShuffling = true; // Inicia o modo de embaralhamento
+                controls.enabled = false; // Desativa os controles durante o embaralhamento
 
-                const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
-                const axis = axes[Math.floor(Math.random() * axes.length)];
+                let moveCount = 0;
 
-                const sliceIndices = [-1, 0, 1];
-                const sliceIndex = sliceIndices[Math.floor(Math.random() * sliceIndices.length)];
+                function performRandomMove() {
+                    if (moveCount >= moves) {
+                        controls.enabled = true; // Reativa os controles ao final
+                        isShuffling = false; // Finaliza o modo de embaralhamento
+                        saveState(); // Salva o estado final
+                        resolve(); // Resolve a promise quando o embaralhamento terminar
+                        return;
+                    }
 
-                // Posição para selecionar a fatia
-                const position = axis.clone().multiplyScalar(sliceIndex * totalSize);
+                    const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+                    const axis = axes[Math.floor(Math.random() * axes.length)];
 
-                const slice = getSlice(axis, position);
+                    const sliceIndices = [-1, 0, 1];
+                    const sliceIndex = sliceIndices[Math.floor(Math.random() * sliceIndices.length)];
 
-                const angles = [Math.PI / 2, -Math.PI / 2];
-                const angle = angles[Math.floor(Math.random() * angles.length)];
+                    // Posição para selecionar a fatia
+                    const position = axis.clone().multiplyScalar(sliceIndex * totalSize);
 
-                moveCount++;
+                    const slice = getSlice(axis, position);
 
-                // Anima a rotação e chama o próximo movimento ao completar
-                animateRotation(slice, axis, angle, performRandomMove);
-            }
+                    const angles = [Math.PI / 2, -Math.PI / 2];
+                    const angle = angles[Math.floor(Math.random() * angles.length)];
 
-            performRandomMove();
+                    moveCount++;
+
+                    // Anima a rotação e chama o próximo movimento ao completar
+                    animateRotation(slice, axis, angle, performRandomMove);
+                }
+
+                performRandomMove();
+            });
         }
 
         // --- Lógica do Reset ---
         const resetBtn = document.getElementById('reset-btn');
 
-        function resetCubeState() {
+        function fullReset() {
             if (isAnimating) return;
 
             // Zera o cronômetro
             resetTimer();
+
+            // Remove o estado salvo do cache
+            localStorage.removeItem('rubiksCubeState');
 
             // Retorna as peças para a posição e rotação originais
             const identityQuaternion = new THREE.Quaternion();
@@ -782,14 +794,11 @@ function animateRotation(slice, axis, angle, onComplete) {
                 piece.quaternion.copy(identityQuaternion);
             });
 
-            // Salva o estado reiniciado
-            saveState();
-
             // Fecha o modal de configurações
             settingsModal.style.display = 'none';
         }
 
-        resetBtn.addEventListener('click', resetCubeState);
+        resetBtn.addEventListener('click', fullReset);
 
         // --- Lógica dos Botões do Cronômetro ---
         const timerResetBtn = document.getElementById('timer-reset-btn');
@@ -801,14 +810,14 @@ function animateRotation(slice, axis, angle, onComplete) {
             if (timerRunning) {
                 stopTimer();
             } else {
-                // Só inicia o cronômetro se o cubo não estiver resolvido
-                if (!checkIfSolved()) {
-                    startTimer();
-                }
+                // Inicia o cronômetro independentemente do estado do cubo
+                startTimer();
             }
         });
 
-        timerResetBtn.addEventListener('click', resetCubeState);
+        timerResetBtn.addEventListener('click', resetTimer);
+
+        window.checkIfSolved = checkIfSolved; // Expor para o teste
     </script>
 </body>
 </html>
