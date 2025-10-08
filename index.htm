@@ -45,7 +45,7 @@
             z-index: 101;
             color: #fff;
         }
-        #settings-modal {
+        #settings-modal, #results-modal {
             display: none;
             position: fixed;
             z-index: 1000;
@@ -129,12 +129,39 @@
         .modal-buttons button#reset-btn {
             background-color: #dc3545;
         }
+        #results-modal .modal-content {
+            text-align: center;
+        }
+        #final-time {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00; /* Green for success */
+            margin: 10px 0;
+        }
+        #close-results-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div id="stopwatch">00:00.00</div>
     <div id="settings-btn">
         <i class="fas fa-cog"></i>
+    </div>
+
+    <div id="results-modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Parabéns!</h2>
+            <p>Seu tempo foi: <span id="final-time"></span></p>
+            <button id="close-results-btn">Fechar</button>
+        </div>
     </div>
 
     <div id="settings-modal">
@@ -395,6 +422,13 @@ function determineAndRotateSlice(dragVector) {
         }
 
 function animateRotation(slice, axis, angle, onComplete) {
+    // Se o modal de resultados estiver aberto, esconde e reseta o timer para um novo jogo
+    const resultsModal = document.getElementById('results-modal');
+    if (resultsModal.style.display === 'flex') {
+        resultsModal.style.display = 'none';
+        resetTimer();
+    }
+
     if (isAnimating) {
         if (onComplete) onComplete();
         return;
@@ -451,8 +485,10 @@ function animateRotation(slice, axis, angle, onComplete) {
                     isAnimating = false;
                     saveState(); // Salva o estado após a rotação
 
-                    if (checkIfSolved()) {
-                        resetTimer();
+                    if (checkIfSolved() && elapsedTime > 0) {
+                        stopTimer();
+                        document.getElementById('final-time').textContent = formatTime(elapsedTime);
+                        document.getElementById('results-modal').style.display = 'flex';
                     }
 
                     controls.enabled = true; // Reativa os controles
@@ -598,9 +634,24 @@ function animateRotation(slice, axis, angle, onComplete) {
             settingsModal.style.display = 'none';
         }
 
+        // --- Lógica do Modal de Resultados ---
+        const resultsModal = document.getElementById('results-modal');
+        const closeResultsBtn = document.getElementById('close-results-btn');
+
+        function closeResultsModal() {
+            resultsModal.style.display = 'none';
+            resetTimer();
+        }
+
+        closeResultsBtn.onclick = closeResultsModal;
+
+        // Atualiza o fechamento de modais para incluir o de resultados
         window.onclick = function(event) {
             if (event.target == settingsModal) {
                 settingsModal.style.display = 'none';
+            }
+            if (event.target == resultsModal) {
+                closeResultsModal();
             }
         }
 
@@ -617,6 +668,7 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         function shuffleCube(moves = 20) {
             if (isAnimating) return;
+            resetTimer(); // Zera o cronômetro ao embaralhar
             controls.enabled = false; // Desativa os controles durante o embaralhamento
 
             let moveCount = 0;
