@@ -754,8 +754,8 @@ function animateRotation(slice, axis, angle, onComplete) {
             updateStopwatchDisplay();
 
             // Após carregar o estado, verifica se o cubo já está resolvido.
-            // A flag hasInteracted em saveState() previne o problema do tempo.
-            if (checkIfSolved()) {
+            // A verificação de tempo previne que o modal apareça na primeira visita.
+            if (checkIfSolved() && elapsedTime > 0) {
                 stopTimer(); // Garante que o estado do botão play/pause esteja correto.
                 document.getElementById('final-time').textContent = formatTime(elapsedTime);
                 document.getElementById('results-modal').style.display = 'flex';
