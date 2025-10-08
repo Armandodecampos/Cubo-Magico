@@ -179,8 +179,8 @@
 
     <div id="results-modal" style="display: none;">
         <div class="modal-content">
-            <h2>Parabéns!</h2>
-            <p>Seu tempo foi: <span id="final-time"></span></p>
+            <p>Seu tempo foi:</p>
+            <p><span id="final-time"></span></p>
             <button id="close-results-btn">Fechar</button>
         </div>
     </div>
@@ -747,6 +747,7 @@ function animateRotation(slice, axis, angle, onComplete) {
         shuffleBtn.addEventListener('click', () => {
             const moves = parseInt(shuffleSlider.value, 10);
             shuffleCube(moves);
+            settingsModal.style.display = 'none'; // Fecha o modal
         });
 
         function shuffleCube(moves) {
