@@ -641,10 +641,8 @@ function animateRotation(slice, axis, angle, onComplete) {
 
             updateStopwatchDisplay();
 
-            // Se o tempo foi carregado e o cubo não está resolvido, continua o cronômetro
-            if (elapsedTime > 0 && !checkIfSolved()) {
-                startTimer();
-            }
+            // O cronômetro agora só será iniciado pela interação do usuário,
+            // então a chamada para startTimer() foi removida daqui.
         }
 
         // --- Iniciar ---
@@ -736,10 +734,34 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         // --- Lógica do Reset ---
         const resetBtn = document.getElementById('reset-btn');
-        resetBtn.addEventListener('click', () => {
-            localStorage.removeItem('rubiksCubeState');
-            location.reload();
-        });
+
+        function resetCubeState() {
+            if (isAnimating) return;
+
+            // Zera o cronômetro
+            resetTimer();
+
+            // Retorna as peças para a posição e rotação originais
+            const identityQuaternion = new THREE.Quaternion();
+            piecesGroup.children.forEach(piece => {
+                const idCoords = piece.userData.id.split('_').map(Number);
+                const originalPosition = new THREE.Vector3(
+                    idCoords[0] * totalSize,
+                    idCoords[1] * totalSize,
+                    idCoords[2] * totalSize
+                );
+                piece.position.copy(originalPosition);
+                piece.quaternion.copy(identityQuaternion);
+            });
+
+            // Salva o estado reiniciado
+            saveState();
+
+            // Fecha o modal de configurações
+            settingsModal.style.display = 'none';
+        }
+
+        resetBtn.addEventListener('click', resetCubeState);
 
     </script>
 </body>
