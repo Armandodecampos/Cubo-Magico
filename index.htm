@@ -27,6 +27,15 @@
             background-color: rgba(0,0,0,0.2);
             border-radius: 10px;
         }
+        #stopwatch {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            font-size: 32px;
+            font-family: 'Courier New', Courier, monospace;
+            color: #fff;
+            z-index: 101;
+        }
         #settings-btn {
             position: fixed;
             top: 20px;
@@ -123,6 +132,7 @@
     </style>
 </head>
 <body>
+    <div id="stopwatch">00:00.00</div>
     <div id="settings-btn">
         <i class="fas fa-cog"></i>
     </div>
@@ -171,6 +181,14 @@
         let intersectedObject = null;
         let isAnimating = false;
 
+        // Estado do cronômetro
+        let timerRunning = false;
+        let startTime = 0;
+        let elapsedTime = 0;
+        let timerInterval;
+        const stopwatchElement = document.getElementById('stopwatch');
+
+
         // --- Configuração Inicial ---
         function init() {
             // Cena
@@ -204,6 +222,7 @@
             renderer.domElement.addEventListener('pointerdown', onPointerDown, false);
             renderer.domElement.addEventListener('pointermove', onPointerMove, false);
             renderer.domElement.addEventListener('pointerup', onPointerUp, false);
+            document.addEventListener('visibilitychange', handleVisibilityChange, false);
 
             // Iniciar loop de animação
             animate();
@@ -381,6 +400,7 @@ function animateRotation(slice, axis, angle, onComplete) {
         return;
     }
             isAnimating = true;
+            startTimer(); // Inicia o cronômetro em qualquer movimento
 
             const pivot = new THREE.Group();
             scene.add(pivot);
@@ -430,6 +450,11 @@ function animateRotation(slice, axis, angle, onComplete) {
                     scene.remove(pivot);
                     isAnimating = false;
                     saveState(); // Salva o estado após a rotação
+
+                    if (checkIfSolved()) {
+                        resetTimer();
+                    }
+
                     controls.enabled = true; // Reativa os controles
                     if (onComplete) {
                         onComplete();
@@ -449,11 +474,88 @@ function animateRotation(slice, axis, angle, onComplete) {
         // --- Loop de Animação ---
         function animate() {
             requestAnimationFrame(animate);
+            updateTimer();
             controls.update();
             renderer.render(scene, camera);
         }
 
+        // --- Lógica do Cronômetro ---
+        function startTimer() {
+            if (!timerRunning) {
+                timerRunning = true;
+                startTime = Date.now() - elapsedTime;
+            }
+        }
+
+        function stopTimer() {
+            if (timerRunning) {
+                timerRunning = false;
+                elapsedTime = Date.now() - startTime;
+            }
+        }
+
+        function resetTimer() {
+            stopTimer();
+            elapsedTime = 0;
+            updateStopwatchDisplay();
+        }
+
+        function updateTimer() {
+            if (timerRunning) {
+                elapsedTime = Date.now() - startTime;
+                updateStopwatchDisplay();
+            }
+        }
+
+        function formatTime(time) {
+            const pad = (num, size) => ('00' + num).slice(size * -1);
+            const centiseconds = Math.floor((time % 1000) / 10);
+            const seconds = Math.floor(time / 1000) % 60;
+            const minutes = Math.floor(time / 60000) % 60;
+            return `${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(centiseconds, 2)}`;
+        }
+
+        function updateStopwatchDisplay() {
+            stopwatchElement.textContent = formatTime(elapsedTime);
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) {
+                // Se a aba ficar inativa, pausa o cronômetro
+                stopTimer();
+            } else {
+                // Se a aba voltar a ficar ativa, continua o cronômetro
+                startTimer();
+            }
+        }
+
+
         // --- Funções de Estado ---
+        function checkIfSolved() {
+            // A cube is solved if every piece is in its original position and orientation.
+            const epsilon = 0.01;
+            const identityQuaternion = new THREE.Quaternion();
+
+            for (const piece of piecesGroup.children) {
+                const idCoords = piece.userData.id.split('_').map(Number);
+                const originalPosition = new THREE.Vector3(
+                    idCoords[0] * totalSize,
+                    idCoords[1] * totalSize,
+                    idCoords[2] * totalSize
+                );
+
+                if (piece.position.distanceTo(originalPosition) > epsilon) {
+                    return false; // Piece is not in its home position.
+                }
+
+                // If quaternions q and p represent the same rotation, then |q.dot(p)| will be 1.
+                if (Math.abs(piece.quaternion.dot(identityQuaternion)) < 1.0 - epsilon) {
+                    return false; // Piece is not in its home orientation.
+                }
+            }
+            return true; // All pieces are solved.
+        }
+
         function saveState() {
             const state = piecesGroup.children.map(piece => ({
                 id: piece.userData.id,
