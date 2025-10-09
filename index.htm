@@ -204,6 +204,8 @@
         </div>
     </div>
 
+    <audio id="turn-sound" src="https://www.myinstants.com/media/sounds/rubik-s-cube-turn.mp3" preload="auto"></audio>
+
     <!-- Importmap para Three.js e OrbitControls -->
     <script type="importmap">
     {
@@ -466,6 +468,13 @@ function animateRotation(slice, axis, angle, onComplete) {
         return;
     }
             isAnimating = true;
+
+            const turnSound = document.getElementById('turn-sound');
+            if (turnSound) {
+                turnSound.currentTime = 0;
+                turnSound.play();
+            }
+
             if (!isShuffling) { // Só inicia o timer se não estiver embaralhando
                 startTimer();
             }
