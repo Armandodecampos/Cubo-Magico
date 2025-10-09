@@ -851,11 +851,35 @@ function animateRotation(slice, axis, angle, onComplete) {
             }
         }
 
+        function saveSettings() {
+            const settings = {
+                zoom: zoomSlider.value,
+                shuffleMoves: shuffleSlider.value
+            };
+            localStorage.setItem('rubiksCubeSettings', JSON.stringify(settings));
+        }
+
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('rubiksCubeSettings');
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                if (settings.zoom) {
+                    zoomSlider.value = settings.zoom;
+                    camera.position.setLength(settings.zoom);
+                }
+                if (settings.shuffleMoves) {
+                    shuffleSlider.value = settings.shuffleMoves;
+                    shuffleMovesValue.textContent = settings.shuffleMoves;
+                }
+            }
+        }
+
         // --- Lógica do Zoom ---
         const zoomSlider = document.getElementById('zoom-slider');
         zoomSlider.addEventListener('input', (event) => {
             const distance = event.target.value;
             camera.position.setLength(distance);
+            saveSettings();
         });
 
         // --- Lógica do Shuffle ---
@@ -865,6 +889,7 @@ function animateRotation(slice, axis, angle, onComplete) {
 
         shuffleSlider.addEventListener('input', (event) => {
             shuffleMovesValue.textContent = event.target.value;
+            saveSettings();
         });
 
         window.shuffleCube = shuffleCube; // Expor para o teste
@@ -971,6 +996,8 @@ function animateRotation(slice, axis, angle, onComplete) {
         timerResetBtn.addEventListener('click', resetTimer);
 
         window.checkIfSolved = checkIfSolved; // Expor para o teste
+
+        loadSettings(); // Carrega as configurações ao final de tudo
     </script>
 </body>
 </html>
