@@ -204,8 +204,6 @@
         </div>
     </div>
 
-    <audio id="turn-sound" src="https://www.myinstants.com/media/sounds/rubik-s-cube-turn.mp3" preload="auto"></audio>
-
     <!-- Importmap para Three.js e OrbitControls -->
     <script type="importmap">
     {
@@ -236,6 +234,9 @@
         let isAnimating = false;
         let hasInteracted = false; // Previne o salvamento de estado antes da interação
         let isShuffling = false; // Novo: para controlar o estado de embaralhamento
+
+        // Áudio
+        let audioCtx;
 
         // Estado do cronômetro
         let timerRunning = false;
@@ -342,6 +343,11 @@
         // --- Lógica de Interação ---
         function onPointerDown(event) {
             if (isAnimating) return;
+
+            // Initialize AudioContext on first user gesture
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
 
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -454,6 +460,28 @@ function determineAndRotateSlice(dragVector) {
             return slice;
         }
 
+        function playTurnSound() {
+            if (!audioCtx) return;
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            // Configure o som para um clique curto e agudo
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // Frequência inicial alta
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // Volume
+
+            // Diminui rapidamente a frequência e o ganho para criar um som de 'clique'
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        }
+
 function animateRotation(slice, axis, angle, onComplete) {
     hasInteracted = true; // Registra que o usuário interagiu com o cubo
     // Se o modal de resultados estiver aberto, esconde e reseta o timer para um novo jogo
@@ -469,11 +497,7 @@ function animateRotation(slice, axis, angle, onComplete) {
     }
             isAnimating = true;
 
-            const turnSound = document.getElementById('turn-sound');
-            if (turnSound) {
-                turnSound.currentTime = 0;
-                turnSound.play();
-            }
+            playTurnSound();
 
             if (!isShuffling) { // Só inicia o timer se não estiver embaralhando
                 startTimer();
