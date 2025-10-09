@@ -472,9 +472,9 @@ function determineAndRotateSlice(dragVector) {
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             oscillator.type = 'triangle';
-            oscillator.frequency.setValueAtTime(900, now);
+            oscillator.frequency.setValueAtTime(600, now); // Frequência inicial mais baixa
             gainNode.gain.setValueAtTime(0.3, now);
-            oscillator.frequency.exponentialRampToValueAtTime(300, now + duration);
+            oscillator.frequency.exponentialRampToValueAtTime(200, now + duration); // Frequência final mais baixa
             gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
             // --- Noise Component (the "scrape") ---
@@ -597,7 +597,10 @@ function animateRotation(slice, axis, angle, onComplete) {
                         stopTimer(); // Para o cronômetro e atualiza o `elapsedTime` global.
                         playSolvedSound();
                         document.getElementById('final-time').textContent = formatTime(elapsedTime); // Usa o `elapsedTime` global.
-                        document.getElementById('results-modal').style.display = 'flex';
+                        // Adiciona um pequeno atraso para garantir que o som seja ouvido antes de o modal bloquear a thread principal.
+                        setTimeout(() => {
+                            document.getElementById('results-modal').style.display = 'flex';
+                        }, 100);
                     } else if (!isShuffling) {
                         controls.enabled = true; // Só reativa se o cubo não estiver resolvido E não estiver embaralhando
                     }
