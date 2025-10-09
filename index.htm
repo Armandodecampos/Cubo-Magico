@@ -463,23 +463,40 @@ function determineAndRotateSlice(dragVector) {
         function playTurnSound() {
             if (!audioCtx) return;
 
+            const now = audioCtx.currentTime;
+            const duration = 0.08;
+
+            // --- Tonal Component (the "click") ---
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-
-            // Configure o som para um clique curto e agudo
             oscillator.type = 'triangle';
-            oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // Frequência inicial alta
-            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // Volume
+            oscillator.frequency.setValueAtTime(900, now);
+            gainNode.gain.setValueAtTime(0.3, now);
+            oscillator.frequency.exponentialRampToValueAtTime(300, now + duration);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-            // Diminui rapidamente a frequência e o ganho para criar um som de 'clique'
-            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            // --- Noise Component (the "scrape") ---
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = buffer;
+            const noiseGain = audioCtx.createGain();
+            noiseSource.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noiseGain.gain.setValueAtTime(0.05, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-            oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + 0.1);
+            // --- Start and Stop ---
+            oscillator.start(now);
+            noiseSource.start(now);
+            oscillator.stop(now + duration);
+            noiseSource.stop(now + duration);
         }
 
 function animateRotation(slice, axis, angle, onComplete) {
