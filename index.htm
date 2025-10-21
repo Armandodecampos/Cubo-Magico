@@ -194,6 +194,13 @@
                 <button id="reset-btn">Reiniciar</button>
             </div>
             <div class="slider-container">
+                <label for="theme-selector">Tema</label>
+                <select id="theme-selector" style="width: 100%; padding: 8px; border-radius: 5px; background-color: #444; color: white; border: 1px solid #555;">
+                    <option value="colors">Cores</option>
+                    <option value="numbers">Números</option>
+                </select>
+            </div>
+            <div class="slider-container">
                 <label for="zoom-slider">Zoom</label>
                 <input type="range" min="4" max="15" value="8" class="slider" id="zoom-slider">
             </div>
@@ -234,6 +241,7 @@
         let isAnimating = false;
         let hasInteracted = false; // Previne o salvamento de estado antes da interação
         let isShuffling = false; // Novo: para controlar o estado de embaralhamento
+        let currentTheme = 'colors'; // Novo: para controlar o tema atual
 
         // Áudio
         let audioCtx;
@@ -273,9 +281,9 @@
             controls.enablePan = false;
             controls.enableZoom = false;
             
-
+            loadSettings(); // Carrega as configurações ANTES de criar o cubo
             // Criar o cubo
-            createRubiksCube();
+            createRubiksCube(currentTheme);
 
             // Event Listeners
             window.addEventListener('resize', onWindowResize, false);
@@ -290,7 +298,41 @@
         }
 
         // --- Criação do Cubo ---
-        function createRubiksCube() {
+        const faceData = {
+            right:  { color: 0x0000ff, number: '1' }, // Azul
+            left:   { color: 0x00ff00, number: '6' }, // Verde
+            up:     { color: 0xffffff, number: '3' }, // Branco
+            down:   { color: 0xffff00, number: '4' }, // Amarelo
+            front:  { color: 0xff0000, number: '2' }, // Vermelho
+            back:   { color: 0xffa500, number: '5' }  // Laranja
+        };
+        const innerMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
+
+        function createNumberTexture(number, color, backgroundColor) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 128;
+            canvas.height = 128;
+
+            context.fillStyle = `#${new THREE.Color(backgroundColor).getHexString()}`;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            context.font = 'bold 70px Arial';
+            context.fillStyle = `#${new THREE.Color(color).getHexString()}`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(number, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return new THREE.MeshBasicMaterial({ map: texture });
+        }
+
+        function createRubiksCube(theme = 'colors') {
+            currentTheme = theme;
+            if (cubeGroup) {
+                scene.remove(cubeGroup);
+            }
             cubeGroup = new THREE.Group();
             piecesGroup = new THREE.Group();
             cubeGroup.add(piecesGroup);
@@ -301,36 +343,37 @@
             const coreMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a });
             const core = new THREE.Mesh(coreGeometry, coreMaterial);
             cubeGroup.add(core);
-            
-            // Cores das faces do cubo mágico
-            const colors = {
-                front:  0xff0000, // Vermelho
-                back:   0xffa500, // Laranja
-                up:     0xffffff, // Branco
-                down:   0xffff00, // Amarelo
-                left:   0x00ff00, // Verde
-                right:  0x0000ff  // Azul
-            };
+
+            const materialsCache = {};
+            if (theme === 'numbers') {
+                const darkGrey = 0x333333;
+                for (const face in faceData) {
+                    materialsCache[face] = createNumberTexture(faceData[face].number, 0xffffff, darkGrey);
+                }
+            } else { // colors
+                for (const face in faceData) {
+                    materialsCache[face] = new THREE.MeshBasicMaterial({ color: faceData[face].color });
+                }
+            }
+
 
             for (let x = -1; x <= 1; x++) {
                 for (let y = -1; y <= 1; y++) {
                     for (let z = -1; z <= 1; z++) {
-                        // Não cria a peça central invisível
                         if (x === 0 && y === 0 && z === 0) continue;
 
                         const materials = [
-                            (x === 1) ? new THREE.MeshBasicMaterial({ color: colors.right }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // right
-                            (x === -1) ? new THREE.MeshBasicMaterial({ color: colors.left }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // left
-                            (y === 1) ? new THREE.MeshBasicMaterial({ color: colors.up }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // up
-                            (y === -1) ? new THREE.MeshBasicMaterial({ color: colors.down }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // down
-                            (z === 1) ? new THREE.MeshBasicMaterial({ color: colors.front }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a }), // front
-                            (z === -1) ? new THREE.MeshBasicMaterial({ color: colors.back }) : new THREE.MeshBasicMaterial({ color: 0x1a1a1a })  // back
+                            (x === 1) ? materialsCache.right : innerMaterial,
+                            (x === -1) ? materialsCache.left : innerMaterial,
+                            (y === 1) ? materialsCache.up : innerMaterial,
+                            (y === -1) ? materialsCache.down : innerMaterial,
+                            (z === 1) ? materialsCache.front : innerMaterial,
+                            (z === -1) ? materialsCache.back : innerMaterial
                         ];
 
                         const geometry = new THREE.BoxGeometry(pieceSize, pieceSize, pieceSize);
                         const piece = new THREE.Mesh(geometry, materials);
                         piece.position.set(x * totalSize, y * totalSize, z * totalSize);
-                        // Assign a unique ID based on initial position for stable state saving
                         piece.userData.id = `${x}_${y}_${z}`;
                         piecesGroup.add(piece);
                     }
@@ -881,7 +924,8 @@ function animateRotation(slice, axis, angle, onComplete) {
         function saveSettings() {
             const settings = {
                 zoom: zoomSlider.value,
-                shuffleMoves: shuffleSlider.value
+                shuffleMoves: shuffleSlider.value,
+                theme: themeSelector.value
             };
             localStorage.setItem('rubiksCubeSettings', JSON.stringify(settings));
         }
@@ -898,11 +942,22 @@ function animateRotation(slice, axis, angle, onComplete) {
                     shuffleSlider.value = settings.shuffleMoves;
                     shuffleMovesValue.textContent = settings.shuffleMoves;
                 }
+                if (settings.theme) {
+                    themeSelector.value = settings.theme;
+                    currentTheme = settings.theme;
+                }
             }
         }
 
         // --- Lógica do Zoom ---
         const zoomSlider = document.getElementById('zoom-slider');
+        const themeSelector = document.getElementById('theme-selector');
+
+        themeSelector.addEventListener('change', (event) => {
+            fullReset(event.target.value);
+            saveSettings();
+        });
+
         zoomSlider.addEventListener('input', (event) => {
             const distance = event.target.value;
             camera.position.setLength(distance);
@@ -976,34 +1031,23 @@ function animateRotation(slice, axis, angle, onComplete) {
         // --- Lógica do Reset ---
         const resetBtn = document.getElementById('reset-btn');
 
-        function fullReset() {
+        function fullReset(newTheme) {
             if (isAnimating) return;
 
-            hasInteracted = true; // O reset é uma interação
-            // Zera o cronômetro
-            resetTimer();
+            const themeToApply = newTheme || currentTheme;
 
-            // Remove o estado salvo do cache
+            hasInteracted = true; // O reset é uma interação
+            resetTimer();
             localStorage.removeItem('rubiksCubeState');
 
-            // Retorna as peças para a posição e rotação originais
-            const identityQuaternion = new THREE.Quaternion();
-            piecesGroup.children.forEach(piece => {
-                const idCoords = piece.userData.id.split('_').map(Number);
-                const originalPosition = new THREE.Vector3(
-                    idCoords[0] * totalSize,
-                    idCoords[1] * totalSize,
-                    idCoords[2] * totalSize
-                );
-                piece.position.copy(originalPosition);
-                piece.quaternion.copy(identityQuaternion);
-            });
+            // Recria o cubo com o tema especificado
+            createRubiksCube(themeToApply);
 
-            // Fecha o modal de configurações
+            // Fecha o modal de configurações se estiver aberto
             settingsModal.style.display = 'none';
         }
 
-        resetBtn.addEventListener('click', fullReset);
+        resetBtn.addEventListener('click', () => fullReset());
 
         // --- Lógica dos Botões do Cronômetro ---
         const timerResetBtn = document.getElementById('timer-reset-btn');
